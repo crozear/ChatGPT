@@ -1,84 +1,3 @@
-{
-  "version": "ui.v0.5",
-  "coreStats": [
-    { "id": "awareness", "name": "Awareness", "value": 6, "max": 7, "desc": "How perceptive you are sexually." },
-    { "id": "purity", "name": "Purity", "value": 4, "max": 7, "desc": "Genital recovery speed." },
-    { "id": "physique", "name": "Physique", "value": 2, "max": 6, "desc": "Combat fitness." },
-    { "id": "will", "name": "Willpower", "value": 4, "max": 6, "desc": "Resist stun from pain/orgasm." },
-    { "id": "beauty", "name": "Beauty", "value": 3, "max": 6, "desc": "Attractiveness and seduction." },
-    { "id": "promiscuity", "name": "Promiscuity", "value": 5, "max": 6, "desc": "Eagerness for sex." },
-    { "id": "exhibit", "name": "Exhibitionism", "value": 3, "max": 6, "desc": "Willingness to expose." },
-    { "id": "deviancy", "name": "Deviancy", "value": 2, "max": 6, "desc": "Eagerness for monsters/beasts." }
-  ],
-  "sexSkills": [
-    { "name": "Seduction", "rank": "C", "pct": 80 },
-    { "name": "Oral (throat)", "rank": "B", "pct": 15 },
-    { "name": "Vaginal (pussy)", "rank": "C", "pct": 70 },
-    { "name": "Penile (cock)", "rank": "C", "pct": 65 },
-    { "name": "Anal (ass)", "rank": "D", "pct": 55 },
-    { "name": "Hands", "rank": "B", "pct": 95 },
-    { "name": "Buttocks (ass)", "rank": "C", "pct": 10 },
-    { "name": "Thighs", "rank": "D", "pct": 75 },
-    { "name": "Chest (tits)", "rank": "D", "pct": 15 },
-    { "name": "Feet", "rank": "C", "pct": 80 }
-  ],
-  "innocence": { "active": false, "value": 3, "max": 3, "hiddenTrauma": 0 },
-  "equippedClothing": [
-    { "slot": "torso", "category": "outfit_top", "name": "Sheer Crop Top", "integrity": 640, "reveal": 700, "wetness": 10 },
-    { "slot": "bra", "category": "under_top", "name": "Lace Bra", "integrity": 520, "reveal": 500, "wetness": 0 },
-    { "slot": "panties", "category": "under_bottom", "name": "Frilly Black Panties", "integrity": 420, "reveal": 600, "wetness": 0 },
-    { "slot": "legs", "category": "outfit_bottom", "name": "Mini Skirt", "integrity": 700, "reveal": 650, "wetness": 5 }
-  ],
-  "conditions": { "pain": 22, "arousal": 68, "fatigue": 35, "stress": 18, "trauma": 5, "control": 57, "allure": 41 },
-  "semen": { "volume_ml": 120, "amount_ml": 80, "penis_size": "normal", "traits": [] },
-  "fluids": { 
-    "vagina": { "goo_in": 1, "goo_out": 0, "semen_in": 0, "semen_out": 0, "recentStim": 32 },
-    "penis":  { "goo_in": 0, "goo_out": 0, "semen_in": 0, "semen_out": 1, "recentStim": 30 },
-    "anus":   { "goo_in": 0, "goo_out": 0, "semen_in": 0, "semen_out": 0, "recentStim": 0 }
-  },
-  "skillNodes": [
-    { "id": "core-breath", "name": "Breath Discipline", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "Adds /breath (steady|hold|release). Enables edging holds/denies." },
-    { "id": "core-focus", "name": "Focus Chain", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "Adds /focus to boost next check; /compose to drop fluster." },
-    { "id": "pass-control-1", "name": "Control Instinct I", "tier": 0, "branch": "Utility", "stance": "Dom", "xpCost": 1, "desc": "+5% Control on Dom checks." },
-    { "id": "pass-precision-1", "name": "Targeting Nerves I", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "+5% Precision on clit/g-spot/a-spot/ass targets." },
-    { "id": "pass-rhythm-1", "name": "Rhythm Sense I", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "+1 chain to /thrust or /grind before penalty." },
-    { "id": "pass-pain-1", "name": "Pain Handling I", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "-10% pain from penetration and spanking." },
-    { "id": "pass-escape-1", "name": "Slip Free I", "tier": 0, "branch": "Utility", "stance": "Sub", "xpCost": 1, "desc": "+5% Escape while pinned or bound." },
-    { "id": "pass-stamina-1", "name": "Pelvic Drive I", "tier": 1, "branch": "Utility", "stance": "Neutral", "xpCost": 2, "desc": "+10% stamina (longer thrust/grind chains)." },
-    { "id": "pass-edgecap-1", "name": "Edge Reservoir I", "tier": 1, "branch": "Utility", "stance": "Neutral", "xpCost": 2, "desc": "EDGE cap +1 (max 4)." },
-    { "id": "pos-missionary", "name": "Missionary Anchor", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "requires": ["core-breath"], "desc": "Unlocks /missionary with /pin shoulders." },
-    { "id": "pos-doggy", "name": "Doggy Drive", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "requires": ["core-breath"], "desc": "Unlocks /doggy with back-angle checks; stronger ass routes." },
-    { "id": "pos-cowgirl", "name": "Cowgirl Balance", "tier": 1, "branch": "Positions", "stance": "Sub", "xpCost": 2, "requires": ["core-focus"], "desc": "Unlocks /cowgirl; /grind chains twice on success." },
-    { "id": "pos-reverse-cowgirl", "name": "Reverse Cowgirl", "tier": 1, "branch": "Positions", "stance": "Sub", "xpCost": 2, "requires": ["pos-cowgirl"], "desc": "Unlocks /reverse-cowgirl; easier prostate/angle targeting." },
-    { "id": "pos-side", "name": "Side-Lying", "tier": 1, "branch": "Positions", "stance": "Neutral", "xpCost": 2, "desc": "Unlocks /spooning; lower pain, modest control." },
-    { "id": "pos-stand", "name": "Standing Press", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "desc": "Unlocks /stand-press; wall pin routes." },
-    { "id": "pos-facesit", "name": "Face-Sitting", "tier": 1, "branch": "Positions", "stance": "Sub", "xpCost": 2, "desc": "Unlocks /facesit; choke/ride synergy." },
-    { "id": "tech-precision", "name": "Precision Thrust", "tier": 2, "branch": "Technique", "stance": "Dom", "xpCost": 3, "requires": ["pos-missionary"], "desc": "Adds /precision-thrust target=(clit|g-spot|a-spot|ass)." },
-    { "id": "tech-deepthroat", "name": "Throat Training", "tier": 2, "branch": "Technique", "stance": "Sub", "xpCost": 3, "requires": ["core-breath"], "desc": "Adds /deepthroat pace=(slow|steady|hard)." },
-    { "id": "tech-finger", "name": "Finger Weave", "tier": 2, "branch": "Technique", "stance": "Neutral", "xpCost": 3, "requires": ["core-focus"], "desc": "Adds /finger (twirl|come-hither|scissor) and /rub clit." },
-    { "id": "tech-hand", "name": "Hand Spiral", "tier": 2, "branch": "Technique", "stance": "Neutral", "xpCost": 3, "desc": "Adds /handjob spiral|grind; synergy with precum/wetness." },
-    { "id": "tech-foot", "name": "Footplay", "tier": 2, "branch": "Technique", "stance": "Sub", "xpCost": 3, "desc": "Adds /footjob; works well when restrained." },
-    { "id": "tech-anal-entry", "name": "Ass Entry", "tier": 2, "branch": "Technique", "stance": "Neutral", "xpCost": 3, "desc": "Adds /ass-enter with lube checks; pain reduced by wetness." },
-    { "id": "pass-control-2", "name": "Control Instinct II", "tier": 2, "branch": "Utility", "stance": "Dom", "xpCost": 3, "requires": ["pass-control-1"], "desc": "+10% Control; pin DC -1." },
-    { "id": "pass-precision-2", "name": "Targeting Nerves II", "tier": 2, "branch": "Utility", "stance": "Neutral", "xpCost": 3, "requires": ["pass-precision-1"], "desc": "+10% Precision; first miss becomes a graze." },
-    { "id": "pass-stamina-2", "name": "Pelvic Drive II", "tier": 2, "branch": "Utility", "stance": "Neutral", "xpCost": 3, "requires": ["pass-stamina-1"], "desc": "+15% stamina; faster /breath recovery." },
-    { "id": "kink-impact", "name": "Impact Play", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "requires": ["pos-doggy"], "desc": "Adds /spank (ass|thighs); Control +1 on protocol." },
-    { "id": "kink-bondage", "name": "Bondage Basics", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "requires": ["pos-missionary"], "desc": "Adds /bind wrists|ankles|thighs; Escape checks replace timers." },
-    { "id": "kink-exhibition", "name": "Exhibitionist", "tier": 3, "branch": "Kink", "stance": "Sub", "xpCost": 4, "requires": ["pos-cowgirl"], "desc": "Adds audience tag and /show; shame → obedience & pussy juice." },
-    { "id": "kink-choke", "name": "Choke Control", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "requires": ["tech-deepthroat"], "desc": "Adds /choke (light|firm); safe break on fail." },
-    { "id": "kink-humiliate", "name": "Humiliation Tease", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "desc": "Adds /degrade; converts shame into obedience." },
-    { "id": "spec-edge", "name": "Edge Mastery", "tier": 4, "branch": "Technique", "stance": "Neutral", "xpCost": 5, "requires": ["tech-precision"], "desc": "Adds /edge (hold|deny|dump) with EDGE 0–3." },
-    { "id": "spec-service", "name": "Service Protocol", "tier": 4, "branch": "Kink", "stance": "Sub", "xpCost": 5, "requires": ["tech-deepthroat"], "desc": "Adds /service: clean cock, present tits, kneel & offer throat." },
-    { "id": "capstone-dom", "name": "Crown of Control", "tier": 5, "branch": "Utility", "stance": "Dom", "xpCost": 6, "requires": ["kink-bondage", "spec-edge"], "desc": "+25% Control on Dom checks; refund resources on their climax." },
-    { "id": "capstone-sub", "name": "Altar of Devotion", "tier": 5, "branch": "Utility", "stance": "Sub", "xpCost": 6, "requires": ["spec-service", "kink-exhibition"], "desc": "+25% Devotion; your climax buffs partner (Control/Precision)." }
-  ],
-  "bestiary": [],
-  "econRules": [
-    { "title": "Stance Progression", "text": "Wins advance Dom; losses advance Sub." },
-    { "title": "Defeat Boons", "text": "Losing grants Sub-only boons." },
-    { "title": "Intensity Dial (1–5)", "text": "1 playful, 2 rough tease, 3 rough & messy, 4 degrading & controlling, 5 depraved dungeon protocol." }
-  ]
-}
 statMeta = {
   "statMeta": {
     "awareness": {
@@ -198,4 +117,85 @@ statMeta = {
       ]
     }
   }
+}
+{
+  "version": "ui.v0.5",
+  "coreStats": [
+    { "id": "awareness", "name": "Awareness", "value": 6, "max": 7, "desc": "How perceptive you are sexually." },
+    { "id": "purity", "name": "Purity", "value": 4, "max": 7, "desc": "Genital recovery speed." },
+    { "id": "physique", "name": "Physique", "value": 2, "max": 6, "desc": "Combat fitness." },
+    { "id": "will", "name": "Willpower", "value": 4, "max": 6, "desc": "Resist stun from pain/orgasm." },
+    { "id": "beauty", "name": "Beauty", "value": 3, "max": 6, "desc": "Attractiveness and seduction." },
+    { "id": "promiscuity", "name": "Promiscuity", "value": 5, "max": 6, "desc": "Eagerness for sex." },
+    { "id": "exhibit", "name": "Exhibitionism", "value": 3, "max": 6, "desc": "Willingness to expose." },
+    { "id": "deviancy", "name": "Deviancy", "value": 2, "max": 6, "desc": "Eagerness for monsters/beasts." }
+  ],
+  "sexSkills": [
+    { "name": "Seduction", "rank": "C", "pct": 80 },
+    { "name": "Oral (throat)", "rank": "B", "pct": 15 },
+    { "name": "Vaginal (pussy)", "rank": "C", "pct": 70 },
+    { "name": "Penile (cock)", "rank": "C", "pct": 65 },
+    { "name": "Anal (ass)", "rank": "D", "pct": 55 },
+    { "name": "Hands", "rank": "B", "pct": 95 },
+    { "name": "Buttocks (ass)", "rank": "C", "pct": 10 },
+    { "name": "Thighs", "rank": "D", "pct": 75 },
+    { "name": "Chest (tits)", "rank": "D", "pct": 15 },
+    { "name": "Feet", "rank": "C", "pct": 80 }
+  ],
+  "innocence": { "active": false, "value": 3, "max": 3, "hiddenTrauma": 0 },
+  "equippedClothing": [
+    { "slot": "torso", "category": "outfit_top", "name": "Sheer Crop Top", "integrity": 640, "reveal": 700, "wetness": 10 },
+    { "slot": "bra", "category": "under_top", "name": "Lace Bra", "integrity": 520, "reveal": 500, "wetness": 0 },
+    { "slot": "panties", "category": "under_bottom", "name": "Frilly Black Panties", "integrity": 420, "reveal": 600, "wetness": 0 },
+    { "slot": "legs", "category": "outfit_bottom", "name": "Mini Skirt", "integrity": 700, "reveal": 650, "wetness": 5 }
+  ],
+  "conditions": { "pain": 22, "arousal": 68, "fatigue": 35, "stress": 18, "trauma": 5, "control": 57, "allure": 41 },
+  "semen": { "volume_ml": 120, "amount_ml": 80, "penis_size": "normal", "traits": [] },
+  "fluids": { 
+    "vagina": { "goo_in": 1, "goo_out": 0, "semen_in": 0, "semen_out": 0, "recentStim": 32 },
+    "penis":  { "goo_in": 0, "goo_out": 0, "semen_in": 0, "semen_out": 1, "recentStim": 30 },
+    "anus":   { "goo_in": 0, "goo_out": 0, "semen_in": 0, "semen_out": 0, "recentStim": 0 }
+  },
+  "skillNodes": [
+    { "id": "core-breath", "name": "Breath Discipline", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "Adds /breath (steady|hold|release). Enables edging holds/denies." },
+    { "id": "core-focus", "name": "Focus Chain", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "Adds /focus to boost next check; /compose to drop fluster." },
+    { "id": "pass-control-1", "name": "Control Instinct I", "tier": 0, "branch": "Utility", "stance": "Dom", "xpCost": 1, "desc": "+5% Control on Dom checks." },
+    { "id": "pass-precision-1", "name": "Targeting Nerves I", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "+5% Precision on clit/g-spot/a-spot/ass targets." },
+    { "id": "pass-rhythm-1", "name": "Rhythm Sense I", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "+1 chain to /thrust or /grind before penalty." },
+    { "id": "pass-pain-1", "name": "Pain Handling I", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "-10% pain from penetration and spanking." },
+    { "id": "pass-escape-1", "name": "Slip Free I", "tier": 0, "branch": "Utility", "stance": "Sub", "xpCost": 1, "desc": "+5% Escape while pinned or bound." },
+    { "id": "pass-stamina-1", "name": "Pelvic Drive I", "tier": 1, "branch": "Utility", "stance": "Neutral", "xpCost": 2, "desc": "+10% stamina (longer thrust/grind chains)." },
+    { "id": "pass-edgecap-1", "name": "Edge Reservoir I", "tier": 1, "branch": "Utility", "stance": "Neutral", "xpCost": 2, "desc": "EDGE cap +1 (max 4)." },
+    { "id": "pos-missionary", "name": "Missionary Anchor", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "requires": ["core-breath"], "desc": "Unlocks /missionary with /pin shoulders." },
+    { "id": "pos-doggy", "name": "Doggy Drive", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "requires": ["core-breath"], "desc": "Unlocks /doggy with back-angle checks; stronger ass routes." },
+    { "id": "pos-cowgirl", "name": "Cowgirl Balance", "tier": 1, "branch": "Positions", "stance": "Sub", "xpCost": 2, "requires": ["core-focus"], "desc": "Unlocks /cowgirl; /grind chains twice on success." },
+    { "id": "pos-reverse-cowgirl", "name": "Reverse Cowgirl", "tier": 1, "branch": "Positions", "stance": "Sub", "xpCost": 2, "requires": ["pos-cowgirl"], "desc": "Unlocks /reverse-cowgirl; easier prostate/angle targeting." },
+    { "id": "pos-side", "name": "Side-Lying", "tier": 1, "branch": "Positions", "stance": "Neutral", "xpCost": 2, "desc": "Unlocks /spooning; lower pain, modest control." },
+    { "id": "pos-stand", "name": "Standing Press", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "desc": "Unlocks /stand-press; wall pin routes." },
+    { "id": "pos-facesit", "name": "Face-Sitting", "tier": 1, "branch": "Positions", "stance": "Sub", "xpCost": 2, "desc": "Unlocks /facesit; choke/ride synergy." },
+    { "id": "tech-precision", "name": "Precision Thrust", "tier": 2, "branch": "Technique", "stance": "Dom", "xpCost": 3, "requires": ["pos-missionary"], "desc": "Adds /precision-thrust target=(clit|g-spot|a-spot|ass)." },
+    { "id": "tech-deepthroat", "name": "Throat Training", "tier": 2, "branch": "Technique", "stance": "Sub", "xpCost": 3, "requires": ["core-breath"], "desc": "Adds /deepthroat pace=(slow|steady|hard)." },
+    { "id": "tech-finger", "name": "Finger Weave", "tier": 2, "branch": "Technique", "stance": "Neutral", "xpCost": 3, "requires": ["core-focus"], "desc": "Adds /finger (twirl|come-hither|scissor) and /rub clit." },
+    { "id": "tech-hand", "name": "Hand Spiral", "tier": 2, "branch": "Technique", "stance": "Neutral", "xpCost": 3, "desc": "Adds /handjob spiral|grind; synergy with precum/wetness." },
+    { "id": "tech-foot", "name": "Footplay", "tier": 2, "branch": "Technique", "stance": "Sub", "xpCost": 3, "desc": "Adds /footjob; works well when restrained." },
+    { "id": "tech-anal-entry", "name": "Ass Entry", "tier": 2, "branch": "Technique", "stance": "Neutral", "xpCost": 3, "desc": "Adds /ass-enter with lube checks; pain reduced by wetness." },
+    { "id": "pass-control-2", "name": "Control Instinct II", "tier": 2, "branch": "Utility", "stance": "Dom", "xpCost": 3, "requires": ["pass-control-1"], "desc": "+10% Control; pin DC -1." },
+    { "id": "pass-precision-2", "name": "Targeting Nerves II", "tier": 2, "branch": "Utility", "stance": "Neutral", "xpCost": 3, "requires": ["pass-precision-1"], "desc": "+10% Precision; first miss becomes a graze." },
+    { "id": "pass-stamina-2", "name": "Pelvic Drive II", "tier": 2, "branch": "Utility", "stance": "Neutral", "xpCost": 3, "requires": ["pass-stamina-1"], "desc": "+15% stamina; faster /breath recovery." },
+    { "id": "kink-impact", "name": "Impact Play", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "requires": ["pos-doggy"], "desc": "Adds /spank (ass|thighs); Control +1 on protocol." },
+    { "id": "kink-bondage", "name": "Bondage Basics", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "requires": ["pos-missionary"], "desc": "Adds /bind wrists|ankles|thighs; Escape checks replace timers." },
+    { "id": "kink-exhibition", "name": "Exhibitionist", "tier": 3, "branch": "Kink", "stance": "Sub", "xpCost": 4, "requires": ["pos-cowgirl"], "desc": "Adds audience tag and /show; shame → obedience & pussy juice." },
+    { "id": "kink-choke", "name": "Choke Control", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "requires": ["tech-deepthroat"], "desc": "Adds /choke (light|firm); safe break on fail." },
+    { "id": "kink-humiliate", "name": "Humiliation Tease", "tier": 3, "branch": "Kink", "stance": "Dom", "xpCost": 4, "desc": "Adds /degrade; converts shame into obedience." },
+    { "id": "spec-edge", "name": "Edge Mastery", "tier": 4, "branch": "Technique", "stance": "Neutral", "xpCost": 5, "requires": ["tech-precision"], "desc": "Adds /edge (hold|deny|dump) with EDGE 0–3." },
+    { "id": "spec-service", "name": "Service Protocol", "tier": 4, "branch": "Kink", "stance": "Sub", "xpCost": 5, "requires": ["tech-deepthroat"], "desc": "Adds /service: clean cock, present tits, kneel & offer throat." },
+    { "id": "capstone-dom", "name": "Crown of Control", "tier": 5, "branch": "Utility", "stance": "Dom", "xpCost": 6, "requires": ["kink-bondage", "spec-edge"], "desc": "+25% Control on Dom checks; refund resources on their climax." },
+    { "id": "capstone-sub", "name": "Altar of Devotion", "tier": 5, "branch": "Utility", "stance": "Sub", "xpCost": 6, "requires": ["spec-service", "kink-exhibition"], "desc": "+25% Devotion; your climax buffs partner (Control/Precision)." }
+  ],
+  "bestiary": [],
+  "econRules": [
+    { "title": "Stance Progression", "text": "Wins advance Dom; losses advance Sub." },
+    { "title": "Defeat Boons", "text": "Losing grants Sub-only boons." },
+    { "title": "Intensity Dial (1–5)", "text": "1 playful, 2 rough tease, 3 rough & messy, 4 degrading & controlling, 5 depraved dungeon protocol." }
+  ]
 }
