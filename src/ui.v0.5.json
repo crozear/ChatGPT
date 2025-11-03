@@ -1,0 +1,439 @@
+{
+  "version": "ui.v0.5",
+  "coreStats": [
+    {
+      "id": "awareness",
+      "name": "Awareness",
+      "desc": "Perception of sexuality, kinks, and others’ lust.",
+      "value": 220,
+      "max": 1000
+    },
+    {
+      "id": "purity",
+      "name": "Purity",
+      "desc": "How pure you feel; restores genitals faster at higher values.",
+      "value": 680,
+      "max": 1000
+    },
+    {
+      "id": "physique",
+      "name": "Physique",
+      "desc": "Fitness for pins, grapples, and escapes.",
+      "value": 54,
+      "max": 100
+    },
+    {
+      "id": "will",
+      "name": "Willpower",
+      "desc": "Mental resilience to resist stun and degradation.",
+      "value": 62,
+      "max": 100
+    },
+    {
+      "id": "beauty",
+      "name": "Beauty",
+      "desc": "Allure that draws attention and boosts seduction.",
+      "value": 71,
+      "max": 100
+    },
+    {
+      "id": "promiscuity",
+      "name": "Promiscuity",
+      "desc": "Eagerness for sex; unlocks consensual options.",
+      "value": 36,
+      "max": 100
+    },
+    {
+      "id": "exhibitionism",
+      "name": "Exhibitionism",
+      "desc": "Willingness to be seen and exposed in public.",
+      "value": 28,
+      "max": 100
+    },
+    {
+      "id": "deviancy",
+      "name": "Deviancy",
+      "desc": "Comfort with non-human partners; opens creature routes.",
+      "value": 12,
+      "max": 100
+    }
+  ],
+  "innocence": {
+    "active": false
+  },
+  "conditions": {
+    "pain": 12,
+    "arousal": 38,
+    "fatigue": 8,
+    "stress": 17,
+    "trauma": 4,
+    "control": 74,
+    "allure": 22
+  },
+  "semen": {
+    "volume_ml": 120,
+    "amount_ml": 210,
+    "penis_size": "normal"
+  },
+  "fluids": {
+    "vagina": {
+      "recentStim": 10,
+      "goo_in": 0,
+      "goo_out": 0,
+      "semen_in": 2,
+      "semen_out": 1
+    },
+    "penis": {
+      "recentStim": 12,
+      "goo_in": 0,
+      "goo_out": 0,
+      "semen_in": 0,
+      "semen_out": 1
+    },
+    "anus": {
+      "recentStim": 0,
+      "goo_in": 0,
+      "goo_out": 0,
+      "semen_in": 0,
+      "semen_out": 0
+    }
+  },
+  "equippedClothing": [
+    {
+      "slot": "head",
+      "name": "Ribbon",
+      "integrity": 1000,
+      "reveal": 0
+    },
+    {
+      "slot": "top",
+      "name": "School Blouse",
+      "integrity": 880,
+      "reveal": 120
+    },
+    {
+      "slot": "bottom",
+      "name": "Pleated Skirt",
+      "integrity": 820,
+      "reveal": 260
+    },
+    {
+      "slot": "underwear",
+      "name": "Frilly Cotton Panties",
+      "integrity": 760,
+      "reveal": 380,
+      "wetness": 42
+    },
+    {
+      "slot": "feet",
+      "name": "Knee Socks",
+      "integrity": 920,
+      "reveal": 40
+    }
+  ],
+  "sexSkills": [
+    {
+      "name": "Kissing",
+      "rank": "B",
+      "pct": 68
+    },
+    {
+      "name": "Handjob",
+      "rank": "C",
+      "pct": 51
+    },
+    {
+      "name": "Blowjob",
+      "rank": "B+",
+      "pct": 73
+    },
+    {
+      "name": "Riding",
+      "rank": "C",
+      "pct": 47
+    },
+    {
+      "name": "Anal Play",
+      "rank": "D",
+      "pct": 22
+    },
+    {
+      "name": "Dirty Talk",
+      "rank": "A",
+      "pct": 81
+    }
+  ],
+  "skillNodes": [
+    {
+      "id": "pos_kneel",
+      "name": "Kneel",
+      "tier": 0,
+      "branch": "Positions",
+      "stance": "Neutral",
+      "xpCost": 0,
+      "requires": [],
+      "desc": "Basic position to present or serve."
+    },
+    {
+      "id": "pos_mount",
+      "name": "Mount",
+      "tier": 1,
+      "branch": "Positions",
+      "stance": "Dom",
+      "xpCost": 8,
+      "requires": [
+        "pos_kneel"
+      ],
+      "desc": "Climb on top; control angle and depth."
+    },
+    {
+      "id": "tech_choke_lite",
+      "name": "Light Choke",
+      "tier": 2,
+      "branch": "Technique",
+      "stance": "Dom",
+      "xpCost": 12,
+      "requires": [
+        "pos_mount"
+      ],
+      "desc": "Apply light choke; minor stun chance on climax checks."
+    },
+    {
+      "id": "kink_public_flash",
+      "name": "Public Flash",
+      "tier": 2,
+      "branch": "Kink",
+      "stance": "Neutral",
+      "xpCost": 10,
+      "requires": [
+        "pos_kneel"
+      ],
+      "desc": "Allow momentary exposure in semi-public checks."
+    },
+    {
+      "id": "util_recover",
+      "name": "Focused Breathing",
+      "tier": 1,
+      "branch": "Utility",
+      "stance": "Neutral",
+      "xpCost": 6,
+      "requires": [
+        "pos_kneel"
+      ],
+      "desc": "Recover small Willpower between phases."
+    },
+    {
+      "id": "tech_gag_train",
+      "name": "Gag Training",
+      "tier": 3,
+      "branch": "Technique",
+      "stance": "Sub",
+      "xpCost": 16,
+      "requires": [
+        "tech_choke_lite"
+      ],
+      "desc": "Reduce gag penalties; enable deeper oral checks."
+    },
+    {
+      "id": "kink_breeding",
+      "name": "Breeding Urge",
+      "tier": 3,
+      "branch": "Kink",
+      "stance": "Sub",
+      "xpCost": 18,
+      "requires": [
+        "kink_public_flash"
+      ],
+      "desc": "Unlock consent to internal finish scenes & checks."
+    }
+  ],
+  "bestiary": [],
+  "econRules": [
+    {
+      "title": "XP Flow",
+      "text": "Gain 2–6 XP per encounter via checks; higher intensity yields more."
+    },
+    {
+      "title": "Skill Costs",
+      "text": "Tier cost scaling: 0, 6–10, 12–18, 16–24. Dom/Sub specialties slightly cheaper when aligned with tendencies."
+    }
+  ],
+  "rankModifiers": {
+    "F": -10,
+    "F+": -5,
+    "D": -2,
+    "C": 3,
+    "B": 7,
+    "B+": 10,
+    "A": 15,
+    "S": 20
+  },
+  "statMeta": {
+    "awareness": {
+      "summary": "How perceptive you are about sex, kinks, and others’ lust.",
+      "thresholds": [
+        0,
+        1,
+        100,
+        200,
+        300,
+        400,
+        500,
+        1000
+      ],
+      "stages": [
+        "You are innocent.",
+        "You are almost entirely innocent.",
+        "You have a limited understanding of sexuality.",
+        "You have a normal understanding of sexuality.",
+        "Your knowledge of sexual depravity extends beyond that of most people.",
+        "You have seen things that few are privy to.",
+        "You have peered into the depths of depravity.",
+        "Your understanding is transcendental."
+      ]
+    },
+    "innocence": {
+      "summary": "Replaces visible Trauma at minimal Awareness. Trauma gains accrue and apply at once when Innocence ends; Awareness bonuses are suppressed while Innocent.",
+      "thresholds": [
+        -200,
+        -199,
+        -160,
+        -120,
+        -80,
+        -40,
+        0
+      ],
+      "stages": [
+        "You are oblivious.",
+        "You are naive.",
+        "You are trusting.",
+        "You are curious.",
+        "You are perplexed.",
+        "You are uncertain.",
+        "You understand."
+      ]
+    },
+    "purity": {
+      "summary": "How pure you feel; higher restores genitals faster. Lowered by orgasms, being ejaculated in/ejaculating inside, lewd fluids, and lost virginity.",
+      "thresholds": [
+        0,
+        1,
+        500,
+        600,
+        700,
+        800,
+        900,
+        1000
+      ],
+      "stages": [
+        "You are beyond defiled.",
+        "You feel utterly defiled.",
+        "You feel defiled.",
+        "You feel somewhat defiled.",
+        "You feel soiled.",
+        "You feel slightly soiled.",
+        "You don't feel entirely pure.",
+        "You're angelic."
+      ]
+    },
+    "physique": {
+      "summary": "Combat fitness and physical capability; affects pins/escapes and some events.",
+      "stages": [
+        "You are emaciated.",
+        "You are skinny.",
+        "Your body is lithe and slender.",
+        "Your body is slim.",
+        "Your body is slim and athletic.",
+        "Your body is toned and firm.",
+        "Your body is toned and powerful."
+      ]
+    },
+    "will": {
+      "summary": "Mental resilience; resist stun from pain or orgasm.",
+      "stages": [
+        "You are timid.",
+        "You are fainthearted.",
+        "You are mindful.",
+        "You are resolved.",
+        "You are determined.",
+        "You are tenacious.",
+        "Your will is iron."
+      ]
+    },
+    "beauty": {
+      "summary": "Allure; boosts seduction and attention risk.",
+      "stages": [
+        "You are plain.",
+        "You are cute.",
+        "You are pretty.",
+        "You are charming.",
+        "You are beautiful.",
+        "You are ravishing.",
+        "Your beauty is divine."
+      ]
+    },
+    "promiscuity": {
+      "summary": "Eagerness for sex; unlocks consensual options.",
+      "thresholds": [
+        0,
+        1,
+        15,
+        35,
+        55,
+        75,
+        95
+      ],
+      "stages": [
+        "You are chaste and pure.",
+        "You are prudish.",
+        "You are sexually curious.",
+        "The thought of sexual contact excites you.",
+        "You crave sexual contact.",
+        "You are a slut.",
+        "Your sexual appetite is insatiable."
+      ]
+    },
+    "exhibitionism": {
+      "summary": "Willingness to be seen; unlocks exposure routes.",
+      "thresholds": [
+        0,
+        1,
+        15,
+        35,
+        55,
+        75,
+        95
+      ],
+      "stages": [
+        "You are coy.",
+        "You are shy.",
+        "You like being sexualized.",
+        "You enjoy lewd attention.",
+        "Feeling exposed excites you.",
+        "You are shameless.",
+        "The thought of exposure fills you with wild abandon."
+      ]
+    },
+    "deviancy": {
+      "summary": "Taste for non-humans; unlocks creature options.",
+      "thresholds": [
+        0,
+        1,
+        15,
+        35,
+        55,
+        75,
+        95
+      ],
+      "stages": [
+        "You are squeamish.",
+        "You are conventional.",
+        "Your tastes are strange.",
+        "Your tastes are shocking.",
+        "Your desires are scandalous.",
+        "You crave acts others wouldn't even conceive of.",
+        "You lust for the unspeakable."
+      ]
+    }
+  }
+}
