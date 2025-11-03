@@ -79,3 +79,123 @@
     { "title": "Intensity Dial (1–5)", "text": "1 playful, 2 rough tease, 3 rough & messy, 4 degrading & controlling, 5 depraved dungeon protocol." }
   ]
 }
+statMeta = {
+  "statMeta": {
+    "awareness": {
+      "summary": "How perceptive you are about sex, kinks, and others’ lust.",
+      "thresholds": [0, 1, 100, 200, 300, 400, 500, 1000],
+      "stages": [
+        "You are innocent.",
+        "You are almost entirely innocent.",
+        "You have a limited understanding of sexuality.",
+        "You have a normal understanding of sexuality.",
+        "Your knowledge of sexual depravity extends beyond that of most people.",
+        "You have seen things that few are privy to.",
+        "You have peered into the depths of depravity.",
+        "Your understanding is transcendental."
+      ]
+    },
+    "innocence": {
+      "summary": "Replaces visible Trauma at minimal Awareness. Trauma gains accrue and apply at once when Innocence ends; Awareness bonuses are suppressed while Innocent.",
+      "thresholds": [-200, -199, -160, -120, -80, -40, 0],
+      "stages": [
+        "You are oblivious.",
+        "You are naive.",
+        "You are trusting.",
+        "You are curious.",
+        "You are perplexed.",
+        "You are uncertain.",
+        "You understand."
+      ]
+    },
+    "purity": {
+      "summary": "How pure you feel; higher restores genitals faster. Lowered by orgasms, being ejaculated in/ejaculating inside, lewd fluids, and lost virginity.",
+      "thresholds": [0, 1, 500, 600, 700, 800, 900, 1000],
+      "stages": [
+        "You are beyond defiled.",
+        "You feel utterly defiled.",
+        "You feel defiled.",
+        "You feel somewhat defiled.",
+        "You feel soiled.",
+        "You feel slightly soiled.",
+        "You don't feel entirely pure.",
+        "You're angelic."
+      ]
+    },
+    "physique": {
+      "summary": "Combat fitness and physical capability; affects pins/escapes and some events.",
+      "stages": [
+        "You are emaciated.",
+        "You are skinny.",
+        "Your body is lithe and slender.",
+        "Your body is slim.",
+        "Your body is slim and athletic.",
+        "Your body is toned and firm.",
+        "Your body is toned and powerful."
+      ]
+    },
+    "will": {
+      "summary": "Mental resilience; resist stun from pain or orgasm.",
+      "stages": [
+        "You are timid.",
+        "You are fainthearted.",
+        "You are mindful.",
+        "You are resolved.",
+        "You are determined.",
+        "You are tenacious.",
+        "Your will is iron."
+      ]
+    },
+    "beauty": {
+      "summary": "Allure; boosts seduction and attention risk.",
+      "stages": [
+        "You are plain.",
+        "You are cute.",
+        "You are pretty.",
+        "You are charming.",
+        "You are beautiful.",
+        "You are ravishing.",
+        "Your beauty is divine."
+      ]
+    },
+    "promiscuity": {
+      "summary": "Eagerness for sex; unlocks consensual options.",
+      "thresholds": [0, 1, 15, 35, 55, 75, 95],
+      "stages": [
+        "You are chaste and pure.",
+        "You are prudish.",
+        "You are sexually curious.",
+        "The thought of sexual contact excites you.",
+        "You crave sexual contact.",
+        "You are a slut.",
+        "Your sexual appetite is insatiable."
+      ]
+    },
+    "exhibitionism": {
+      "summary": "Willingness to be seen; unlocks exposure routes.",
+      "thresholds": [0, 1, 15, 35, 55, 75, 95],
+      "stages": [
+        "You are coy.",
+        "You are shy.",
+        "You like being sexualized.",
+        "You enjoy lewd attention.",
+        "Feeling exposed excites you.",
+        "You are shameless.",
+        "The thought of exposure fills you with wild abandon."
+      ]
+    },
+    "deviancy": {
+      "summary": "Taste for non-humans; unlocks creature options.",
+      "thresholds": [0, 1, 15, 35, 55, 75, 95],
+      "stages": [
+        "You are squeamish.",
+        "You are conventional.",
+        "Your tastes are strange.",
+        "Your tastes are shocking.",
+        "Your desires are scandalous.",
+        "You crave acts others wouldn't even conceive of.",
+        "You lust for the unspeakable."
+      ]
+    }
+  }
+}
