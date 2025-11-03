@@ -1,3 +1,5 @@
+UI json: cartridges/ui.v0.5.json
+
 # H-dungeon Codex Starter
 
 Minimal Vite + React 18 + Tailwind project configured for running the H-dungeon UI locally.
