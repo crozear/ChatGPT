@@ -1,0 +1,48 @@
+{
+  "version": "ui.v0.5",
+  "coreStats": [
+    { "id": "awareness", "name": "Awareness", "value": 6, "max": 7, "desc": "How perceptive you are sexually." },
+    { "id": "purity", "name": "Purity", "value": 4, "max": 7, "desc": "Genital recovery speed." },
+    { "id": "physique", "name": "Physique", "value": 2, "max": 6, "desc": "Combat fitness." },
+    { "id": "will", "name": "Willpower", "value": 4, "max": 6, "desc": "Resist stun from pain/orgasm." },
+    { "id": "beauty", "name": "Beauty", "value": 3, "max": 6, "desc": "Attractiveness and seduction." },
+    { "id": "promiscuity", "name": "Promiscuity", "value": 5, "max": 6, "desc": "Eagerness for sex." },
+    { "id": "exhibit", "name": "Exhibitionism", "value": 3, "max": 6, "desc": "Willingness to expose." },
+    { "id": "deviancy", "name": "Deviancy", "value": 2, "max": 6, "desc": "Eagerness for monsters/beasts." }
+  ],
+  "sexSkills": [
+    { "name": "Seduction", "rank": "C", "pct": 80 },
+    { "name": "Oral (throat)", "rank": "B", "pct": 15 },
+    { "name": "Vaginal (pussy)", "rank": "C", "pct": 70 },
+    { "name": "Penile (cock)", "rank": "C", "pct": 65 },
+    { "name": "Anal (ass)", "rank": "D", "pct": 55 }
+  ],
+  "innocence": { "active": false, "value": 3, "max": 3, "hiddenTrauma": 0 },
+  "equippedClothing": [
+    { "slot": "torso", "category": "outfit_top", "name": "Sheer Crop Top", "integrity": 640, "reveal": 700, "wetness": 10 },
+    { "slot": "bra", "category": "under_top", "name": "Lace Bra", "integrity": 520, "reveal": 500, "wetness": 0 },
+    { "slot": "panties", "category": "under_bottom", "name": "Frilly Black Panties", "integrity": 420, "reveal": 600, "wetness": 0 },
+    { "slot": "legs", "category": "outfit_bottom", "name": "Mini Skirt", "integrity": 700, "reveal": 650, "wetness": 5 }
+  ],
+  "conditions": { "pain": 22, "arousal": 68, "fatigue": 35, "stress": 18, "trauma": 5, "control": 57, "allure": 41 },
+  "semen": { "volume_ml": 120, "amount_ml": 80, "penis_size": "normal", "traits": [] },
+  "fluids": { 
+    "vagina": { "goo_in": 1, "goo_out": 0, "semen_in": 0, "semen_out": 0, "recentStim": 32 },
+    "penis":  { "goo_in": 0, "goo_out": 0, "semen_in": 0, "semen_out": 1, "recentStim": 30 },
+    "anus":   { "goo_in": 0, "goo_out": 0, "semen_in": 0, "semen_out": 0, "recentStim": 0 }
+  },
+  "skillNodes": [
+    { "id": "core-breath", "name": "Breath Discipline", "tier": 0, "branch": "Utility", "stance": "Neutral", "xpCost": 1, "desc": "Adds /breath." },
+    { "id": "pos-missionary", "name": "Missionary Anchor", "tier": 1, "branch": "Positions", "stance": "Dom", "xpCost": 2, "requires": ["core-breath"], "desc": "Unlocks /missionary." },
+    { "id": "tech-target-thrust", "name": "Targeted Thrust", "tier": 2, "branch": "Technique", "stance": "Dom", "xpCost": 3, "requires": ["pos-missionary"], "desc": "Adds /target-thrust." },
+    { "id": "kink-exhibition", "name": "Audience High", "tier": 3, "branch": "Kink", "stance": "Sub", "xpCost": 4, "requires": ["core-breath"], "desc": "Public commands." },
+    { "id": "spec-edge", "name": "Edge Mastery", "tier": 4, "branch": "Technique", "stance": "Neutral", "xpCost": 5, "requires": ["tech-target-thrust"], "desc": "Adds EDGE stacks." },
+    { "id": "capstone-dom", "name": "Crown of Control", "tier": 5, "branch": "Utility", "stance": "Dom", "xpCost": 6, "requires": ["spec-edge"], "desc": "Pins stronger, seduction forgiveness." }
+  ],
+  "bestiary": [],
+  "econRules": [
+    { "title": "Stance Progression", "text": "Wins advance Dom; losses advance Sub." },
+    { "title": "Defeat Boons", "text": "Losing grants Sub-only boons." },
+    { "title": "Intensity Dial (1–5)", "text": "1 playful, 5 depraved." }
+  ]
+}
