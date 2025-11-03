@@ -1,0 +1,66 @@
+{
+  "version": "v1",
+  "skillNodes": [
+    {
+      "id": "core-breath",
+      "name": "Breath Discipline",
+      "tier": 0,
+      "branch": "Utility",
+      "stance": "Neutral",
+      "desc": "Adds /breath (steady|hold|release). Scales with Willpower; helps shrug off stun after orgasm/pain faster.",
+      "xpCost": 1
+    },
+    {
+      "id": "pos-doggy",
+      "name": "Doggy Drive",
+      "tier": 1,
+      "branch": "Positions",
+      "stance": "Dom",
+      "requires": ["core-breath"],
+      "desc": "Unlocks /doggy. Back-angle pound checks scale off Physique; perfect for ass routes and spanking.",
+      "xpCost": 2
+    },
+    {
+      "id": "tech-deepthroat",
+      "name": "Throat Training",
+      "tier": 2,
+      "branch": "Technique",
+      "stance": "Sub",
+      "requires": ["core-breath"],
+      "desc": "Adds /deepthroat pace=(slow|steady|hard). Uses Oral (throat) grade to reduce gag breaks; Willpower cushions fails.",
+      "xpCost": 3
+    }
+  ],
+  "bestiary": [
+    {
+      "name": "Silkbound Nymph",
+      "role": "Lurer",
+      "motif": "Velvet ropes, perfume, and whispered hooks that make you needy.",
+      "floor": 1,
+      "diff": "Easy",
+      "tags": ["humanoid", "seduction"],
+      "winReward": "+1 Dom point toward Bondage Basics.",
+      "lossBoons": "+1 Sub boon: Service starts at a higher grade while bound."
+    },
+    {
+      "name": "Gutterhound",
+      "role": "Bruiser",
+      "motif": "Musk, slobber, brute pin attempts; loves doggy.",
+      "floor": 2,
+      "diff": "Normal",
+      "tags": ["beast", "deviancy"],
+      "winReward": "+1 Dom point toward Doggy Drive chain.",
+      "lossBoons": "+1 Sub boon: deeper throat while pinned."
+    }
+  ],
+  "econRules": [
+    {
+      "title": "Stance Progression",
+      "text": "Wins advance Dom nodes; losses advance Sub nodes."
+    },
+    {
+      "title": "Challenge Pacts",
+      "text": "Optional constraints (blindfold, hands bound, gag) raise DCs and rewards."
+    }
+  ]
+}

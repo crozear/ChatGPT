@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lilith-5 Cartridge Schema",
+  "type": "object",
+  "required": ["version"],
+  "properties": {
+    "version": { "type": "string" },
+    "skillNodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id","name","tier","branch","stance","desc"],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "tier": {"type": "integer", "minimum": 0, "maximum": 5},
+          "branch": {"type": "string", "enum": ["Positions","Technique","Kink","Utility"]},
+          "stance": {"type": "string", "enum": ["Dom","Sub","Neutral"]},
+          "desc": {"type": "string"},
+          "requires": {"type": "array", "items": {"type": "string"}},
+          "xpCost": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "bestiary": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name","role","motif","floor","diff"],
+        "properties": {
+          "name": {"type": "string"},
+          "role": {"type": "string"},
+          "motif": {"type": "string"},
+          "floor": {"type": "integer"},
+          "diff": {"type": "string"},
+          "tags": {"type": "array", "items": {"type": "string"}},
+          "winReward": {"type": "string"},
+          "lossBoons": {"type": "string"}
+        }
+      }
+    },
+    "descriptors": { "type": "object" },
+    "econRules": { "type": "array", "items": { "type": "object", "required": ["title","text"], "properties": { "title": {"type": "string"}, "text": {"type": "string"} } } }
+  }
+}
