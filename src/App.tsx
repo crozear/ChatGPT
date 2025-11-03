@@ -19,7 +19,7 @@ import { Settings } from "lucide-react";
   Notes: keep this file lean; push copy/data into ui.v0.5.json on GitHub. Client-side only.
 */
 
-const DEFAULT_CART_URL = "https://raw.githubusercontent.com/crozear/ChatGPT/main/cartridges/ui.v0.5.json";
+const DEFAULT_CART_URL = "https://raw.githubusercontent.com/crozear/ChatGPT/main/src/ui.v0.5.json";
 const PANEL = "border border-white/10 bg-zinc-900/80 backdrop-blur rounded-2xl";
 const HEAD = "text-zinc-50";
 const SUB = "text-zinc-300/90";
