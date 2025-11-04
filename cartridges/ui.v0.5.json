@@ -6,14 +6,14 @@
       "name": "Awareness",
       "desc": "Perception of sexuality, kinks, and others’ lust.",
       "value": 220,
-      "max": 1000
+      "max": 100
     },
     {
       "id": "purity",
       "name": "Purity",
       "desc": "How pure you feel; restores genitals faster at higher values.",
       "value": 680,
-      "max": 1000
+      "max": 100
     },
     {
       "id": "physique",
@@ -59,7 +59,7 @@
     }
   ],
   "innocence": {
-    "active": false
+    "active": true
   },
   "conditions": {
     "pain": 12,
@@ -102,36 +102,36 @@
     {
       "slot": "head",
       "name": "Ribbon",
-      "integrity": 1000,
+      "integrity": 100,
       "reveal": 0,
       "wetness": 0
     },
     {
       "slot": "top",
       "name": "School Blouse",
-      "integrity": 880,
-      "reveal": 120,
+      "integrity": 88,
+      "reveal": 12,
       "wetness": 0
     },
     {
       "slot": "bottom",
       "name": "Pleated Skirt",
-      "integrity": 820,
-      "reveal": 260,
+      "integrity": 82,
+      "reveal": 26,
       "wetness": 0
     },
     {
       "slot": "underwear",
       "name": "Frilly Cotton Panties",
-      "integrity": 760,
-      "reveal": 380,
+      "integrity": 76,
+      "reveal": 38,
       "wetness": 42
     },
     {
       "slot": "feet",
       "name": "Knee Socks",
-      "integrity": 920,
-      "reveal": 40,
+      "integrity": 92,
+      "reveal": 4,
       "wetness": 12
     }
   ],
@@ -298,12 +298,12 @@
       "thresholds": [
         0,
         1,
-        100,
-        200,
-        300,
-        400,
-        500,
-        1000
+        10,
+        20,
+        30,
+        40,
+        50,
+        100
       ],
       "stages": [
         "You are innocent.",
@@ -319,12 +319,12 @@
     "innocence": {
       "summary": "Replaces visible Trauma at minimal Awareness. Trauma gains accrue and apply at once when Innocence ends; Awareness bonuses are suppressed while Innocent.",
       "thresholds": [
-        -200,
-        -199,
-        -160,
-        -120,
-        -80,
-        -40,
+        -20,
+        -15,
+        -12,
+        -9,
+        -6,
+        -3,
         0
       ],
       "stages": [
@@ -342,12 +342,12 @@
       "thresholds": [
         0,
         1,
-        500,
-        600,
-        700,
-        800,
-        900,
-        1000
+        50,
+        60,
+        70,
+        80,
+        90,
+        100
       ],
       "stages": [
         "You are beyond defiled.",

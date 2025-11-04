@@ -35,9 +35,24 @@ const INTENSITY: Record<1|2|3|4|5,string> = {
 // Fallback rank modifiers if cartridge doesn’t provide them
 const RANKS = ["F","F+","D","C","B","B+","A","S"] as const;
 const FALLBACK_RANK_MOD: Record<(typeof RANKS)[number], number> = { F:-10, "F+":-5, D:-2, C:3, B:7, "B+":10, A:15, S:20 };
+const RANK_BUCKETS: Array<{ rank: (typeof RANKS)[number]; min: number }> = [
+  { rank: "S", min: 95 },
+  { rank: "A", min: 80 },
+  { rank: "B+", min: 72 },
+  { rank: "B", min: 65 },
+  { rank: "C", min: 40 },
+  { rank: "D", min: 30 },
+  { rank: "F+", min: 15 },
+  { rank: "F", min: 0 },
+];
 
 // Small helpers
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
+const rankForPct=(pct:number, modifiers:Record<string,number>|undefined)=>{
+  const ladder=RANK_BUCKETS.filter(bucket=>modifiers? bucket.rank in modifiers : true);
+  const match=ladder.find(bucket=>pct>=bucket.min);
+  return match?.rank ?? (ladder[ladder.length-1]?.rank ?? "F");
+};
 const Gauge=({v,max}:{v:number;max:number})=>{const p=clamp((v/max)*100,0,100);return(<div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-zinc-800"><div style={{width:`${p}%`}} className="h-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500"/></div>)};
 const Pill=({children}:{children:React.ReactNode})=> <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-100">{children}</span>;
 
@@ -82,11 +97,24 @@ function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load
     setBundle(prev => {
       const clothing = [...(prev.clothing || [])];
       const item = { ...clothing[index] };
-      if (field === "wetness") item.wetness = clamp(Math.floor(val || 0), 0, 200);
-      if (field === "integrity") item.integrity = clamp(Math.floor(val || 0), 0, 1000);
-      if (field === "reveal") item.reveal = clamp(Math.floor(val || 0), 0, 1000);
+      if (field === "wetness") item.wetness = clamp(Math.floor(val || 0), 0, 20);
+      if (field === "integrity") item.integrity = clamp(Math.floor(val || 0), 0, 100);
+      if (field === "reveal") item.reveal = clamp(Math.floor(val || 0), 0, 100);
       clothing[index] = item;
       return { ...prev, clothing };
+    });
+  }, [setBundle]);
+
+  const setSkillPct = React.useCallback((index: number, value: number) => {
+    setBundle(prev => {
+      const sexSkills = [...(prev.sexSkills || [])];
+      if (!sexSkills[index]) return prev;
+      const skill = { ...sexSkills[index] };
+      const pct = clamp(Math.floor(Number(value) || 0), 0, 100);
+      skill.pct = pct;
+      skill.rank = rankForPct(pct, prev.rankModifiers || FALLBACK_RANK_MOD);
+      sexSkills[index] = skill;
+      return { ...prev, sexSkills };
     });
   }, [setBundle]);
 
@@ -98,6 +126,7 @@ function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Core Stats</div><div className="mt-2 space-y-2 text-xs">{(bundle.coreStats||[]).map((s:any)=>(<div key={s.id} className="flex items-center justify-between gap-2"><span className="text-zinc-300">{s.name}</span><div className="flex items-center gap-2"><Input type="number" value={s.value} onChange={e=>setCore(s.id,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /><span className="text-zinc-400">/ {s.max}</span></div></div>))}</div></div>
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Conditions</div><div className="mt-2 space-y-2 text-xs">{["pain","arousal","fatigue","stress","trauma","control","allure"].map(k=>(<div key={k} className="flex items-center justify-between gap-2"><span className="capitalize text-zinc-300">{k}</span><Input type="number" value={bundle.conditions?.[k]||0} onChange={e=>setCond(k,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /></div>))}</div></div>
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Semen</div><div className="mt-2 space-y-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Volume (ml)</span><Input type="number" value={bundle.semen?.volume_ml||0} onChange={e=>setSem("volume_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Amount (ml)</span><Input type="number" value={bundle.semen?.amount_ml||0} onChange={e=>setSem("amount_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div></div></div>
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Sexual Skills</div><div className="mt-2 space-y-2 text-xs">{(bundle.sexSkills||[]).map((skill:any,i:number)=>{const pct=typeof skill.pct==="number"?skill.pct:Number(skill.pct||0);const rank=rankForPct(pct, bundle.rankModifiers || FALLBACK_RANK_MOD);return(<div key={skill.id||skill.name||i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex items-center justify-between gap-2"><div className="text-zinc-200">{skill.name||`Skill ${i+1}`}</div><div className="text-[11px] text-zinc-300">Rank {rank}</div></div><div className="mt-2 flex items-center gap-2 text-zinc-400"><label className="flex items-center gap-1"><span>Mastery</span><Input type="number" min={0} max={100} className="h-7 w-20 bg-zinc-950/60" value={pct} onChange={e=>setSkillPct(i,Number(e.target.value))}/></label><span className="text-zinc-500">%</span></div></div>);})}{!bundle.sexSkills?.length&&<div className="text-zinc-400">No sexual skills loaded.</div>}</div></div>
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Cartridge & XP</div><div className="mt-2 text-xs text-zinc-300">Reload default GitHub cartridge.</div><Button onClick={()=>load()} className="mt-2 w-full bg-fuchsia-600/80 text-white hover:bg-fuchsia-500/90">Reload Default Cartridge</Button><div className="mt-4 text-sm font-semibold">XP Pool</div><div className="mt-2 flex items-center justify-between text-xs"><span className="text-zinc-300">XP</span><div className="flex items-center gap-2"><Input type="number" value={xp} onChange={e=>setXp(Number(e.target.value||0))} className="h-7 w-24 bg-zinc-950/60" /><Button size="sm" variant="secondary" onClick={()=>setXp(xp+10)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90">+10</Button></div></div></div>
           <div className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Clothing Editor</div><div className="mt-2 grid grid-cols-1 gap-2 text-xs">{(bundle.clothing||[]).map((c:any,i:number)=>(<div key={i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex flex-wrap items-center gap-2"><label className="flex items-center gap-1"><span className="text-zinc-400">Integrity</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.integrity} onChange={e=>setCl(i,"integrity",Number(e.target.value))}/></label><label className="flex items-center gap-1"><span className="text-zinc-400">Reveal</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.reveal} onChange={e=>setCl(i,"reveal",Number(e.target.value))}/></label>{"wetness" in c? <label className="flex items-center gap-1"><span className="text-zinc-400">Wetness</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.wetness||0} onChange={e=>setCl(i,"wetness",Number(e.target.value))}/></label> : null}</div></div></div>))}{!bundle.clothing?.length&&<div className="text-zinc-400">No equipped clothing.</div>}</div></div>
         </div>
@@ -222,7 +251,7 @@ export default function App(){
       {bundle.clothing?.map((c:any,i:number)=>{
         return (
           <div key={i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2">
-            <div className="flex items-center justify-between"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex items-center gap-2 text-[11px] text-zinc-300"><span>{c.wetness!==undefined?`${c.wetness}/200`:"–"}</span><span>{c.integrity}/1000</span><span>{c.reveal}/1000</span></div></div>
+            <div className="flex items-center justify-between"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex items-center gap-2 text-[11px] text-zinc-300"><span>{c.wetness!==undefined?`${c.wetness}/200`:"–"}</span><span>{c.integrity}/100</span><span>{c.reveal}/100</span></div></div>
             {c.wetness!==undefined&&<div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-zinc-800"><div style={{width:`${(c.wetness/200)*100}%`}} className="h-full bg-gradient-to-r from-sky-500 to-fuchsia-500"/></div>}
           </div>
         );
