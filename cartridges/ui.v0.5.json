@@ -5,14 +5,14 @@
       "id": "awareness",
       "name": "Awareness",
       "desc": "Perception of sexuality, kinks, and others’ lust.",
-      "value": 220,
+      "value": 22,
       "max": 100
     },
     {
       "id": "purity",
       "name": "Purity",
       "desc": "How pure you feel; restores genitals faster at higher values.",
-      "value": 680,
+      "value": 68,
       "max": 100
     },
     {
