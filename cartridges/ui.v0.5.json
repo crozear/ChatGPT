@@ -103,19 +103,22 @@
       "slot": "head",
       "name": "Ribbon",
       "integrity": 1000,
-      "reveal": 0
+      "reveal": 0,
+      "wetness": 0
     },
     {
       "slot": "top",
       "name": "School Blouse",
       "integrity": 880,
-      "reveal": 120
+      "reveal": 120,
+      "wetness": 0
     },
     {
       "slot": "bottom",
       "name": "Pleated Skirt",
       "integrity": 820,
-      "reveal": 260
+      "reveal": 260,
+      "wetness": 0
     },
     {
       "slot": "underwear",
@@ -128,7 +131,8 @@
       "slot": "feet",
       "name": "Knee Socks",
       "integrity": 920,
-      "reveal": 40
+      "reveal": 40,
+      "wetness": 12
     }
   ],
   "sexSkills": [
