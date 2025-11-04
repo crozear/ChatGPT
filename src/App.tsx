@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -44,6 +43,68 @@ const Pill=({children}:{children:React.ReactNode})=> <span className="inline-fle
 
 // Types are intentionally loose to stay short
 type AnyObj = Record<string,any>;
+
+type SettingsDialogProps = {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+  bundle: AnyObj;
+  setBundle: React.Dispatch<React.SetStateAction<AnyObj>>;
+  xp: number;
+  setXp: React.Dispatch<React.SetStateAction<number>>;
+  load: (url?: string) => Promise<void>;
+};
+
+function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load }: SettingsDialogProps) {
+  const setCore = React.useCallback((id: string, val: number) => {
+    setBundle(prev => ({
+      ...prev,
+      coreStats: (prev.coreStats || []).map((s: any) =>
+        s.id === id ? { ...s, value: clamp(val, 0, s.max) } : s
+      ),
+    }));
+  }, [setBundle]);
+
+  const setCond = React.useCallback((key: string, val: number) => {
+    setBundle(prev => ({
+      ...prev,
+      conditions: { ...prev.conditions, [key]: clamp(val, 0, 100) },
+    }));
+  }, [setBundle]);
+
+  const setSem = React.useCallback((key: string, val: number) => {
+    setBundle(prev => ({
+      ...prev,
+      semen: { ...prev.semen, [key]: Math.max(0, Math.floor(val || 0)) },
+    }));
+  }, [setBundle]);
+
+  const setCl = React.useCallback((index: number, field: "integrity"|"reveal"|"wetness", val: number) => {
+    setBundle(prev => {
+      const clothing = [...(prev.clothing || [])];
+      const item = { ...clothing[index] };
+      if (field === "wetness") item.wetness = clamp(Math.floor(val || 0), 0, 200);
+      if (field === "integrity") item.integrity = clamp(Math.floor(val || 0), 0, 1000);
+      if (field === "reveal") item.reveal = clamp(Math.floor(val || 0), 0, 1000);
+      clothing[index] = item;
+      return { ...prev, clothing };
+    });
+  }, [setBundle]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl border-white/10 bg-zinc-900/95 text-zinc-100">
+        <DialogHeader><DialogTitle>Debug Settings</DialogTitle></DialogHeader>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Core Stats</div><div className="mt-2 space-y-2 text-xs">{(bundle.coreStats||[]).map((s:any)=>(<div key={s.id} className="flex items-center justify-between gap-2"><span className="text-zinc-300">{s.name}</span><div className="flex items-center gap-2"><Input type="number" value={s.value} onChange={e=>setCore(s.id,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /><span className="text-zinc-400">/ {s.max}</span></div></div>))}</div></div>
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Conditions</div><div className="mt-2 space-y-2 text-xs">{["pain","arousal","fatigue","stress","trauma","control","allure"].map(k=>(<div key={k} className="flex items-center justify-between gap-2"><span className="capitalize text-zinc-300">{k}</span><Input type="number" value={bundle.conditions?.[k]||0} onChange={e=>setCond(k,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /></div>))}</div></div>
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Semen</div><div className="mt-2 space-y-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Volume (ml)</span><Input type="number" value={bundle.semen?.volume_ml||0} onChange={e=>setSem("volume_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Amount (ml)</span><Input type="number" value={bundle.semen?.amount_ml||0} onChange={e=>setSem("amount_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div></div></div>
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Cartridge & XP</div><div className="mt-2 text-xs text-zinc-300">Reload default GitHub cartridge.</div><Button onClick={()=>load()} className="mt-2 w-full bg-fuchsia-600/80 text-white hover:bg-fuchsia-500/90">Reload Default Cartridge</Button><div className="mt-4 text-sm font-semibold">XP Pool</div><div className="mt-2 flex items-center justify-between text-xs"><span className="text-zinc-300">XP</span><div className="flex items-center gap-2"><Input type="number" value={xp} onChange={e=>setXp(Number(e.target.value||0))} className="h-7 w-24 bg-zinc-950/60" /><Button size="sm" variant="secondary" onClick={()=>setXp(xp+10)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90">+10</Button></div></div></div>
+          <div className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Clothing Editor</div><div className="mt-2 grid grid-cols-1 gap-2 text-xs">{(bundle.clothing||[]).map((c:any,i:number)=>(<div key={i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex flex-wrap items-center gap-2"><label className="flex items-center gap-1"><span className="text-zinc-400">Integrity</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.integrity} onChange={e=>setCl(i,"integrity",Number(e.target.value))}/></label><label className="flex items-center gap-1"><span className="text-zinc-400">Reveal</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.reveal} onChange={e=>setCl(i,"reveal",Number(e.target.value))}/></label>{"wetness" in c? <label className="flex items-center gap-1"><span className="text-zinc-400">Wetness</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.wetness||0} onChange={e=>setCl(i,"wetness",Number(e.target.value))}/></label> : null}</div></div></div>))}{!bundle.clothing?.length&&<div className="text-zinc-400">No equipped clothing.</div>}</div></div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function App(){
   const [bundle,setBundle]=useState<AnyObj>({coreStats:[],sexSkills:[],innocence:{},clothing:[],conditions:{pain:0,arousal:0,fatigue:0,stress:0,trauma:0,control:0,allure:0},semen:{volume_ml:0,amount_ml:0,penis_size:"normal"},fluids:{vagina:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},penis:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},anus:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0}},skillNodes:[],bestiary:[],econRules:[],rankModifiers:FALLBACK_RANK_MOD, statMeta:{}});
@@ -104,10 +165,13 @@ export default function App(){
         <div className="flex items-center gap-3">
           <div className="hidden md:block w-48 text-xs text-zinc-300/80">
             <div className="flex items-center gap-2"><span className="text-zinc-200">Intensity</span>
-              <Select defaultValue={String(intensity)} onValueChange={v=>setIntensity(Number(v))}>
-                <SelectTrigger className="h-8 w-16 bg-zinc-950/60 text-zinc-100"><SelectValue/></SelectTrigger>
-                <SelectContent className="border-white/10 bg-zinc-900/90 text-zinc-100">{[1,2,3,4,5].map(i=><SelectItem key={i} value={String(i)}>{i}</SelectItem>)}</SelectContent>
-              </Select>
+              <select
+                className="h-8 w-16 rounded-xl border border-white/10 bg-zinc-950/60 text-zinc-100"
+                value={intensity}
+                onChange={e=>setIntensity(Number(e.target.value))}
+              >
+                {[1,2,3,4,5].map(i=>(<option key={i} value={i}>{i}</option>))}
+              </select>
             </div>
             <div className="mt-1 text-[10px] text-zinc-400">{INTENSITY[intensity as 1|2|3|4|5]}</div>
           </div>
@@ -244,28 +308,6 @@ export default function App(){
     <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Progression & Balance</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2">{(bundle.econRules||[]).map((r:any)=>(<div key={r.title} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-3"><div className={`text-sm font-semibold ${HEAD}`}>{r.title}</div><div className={`mt-1 text-xs ${SUB}`}>{r.text}</div></div>))}</CardContent></Card>
   );
 
-  const SettingsDialogEl=()=>{
-    const b=bundle; const setB=(nb:any)=>setBundle(nb);
-    const setCore=(id:string,val:number)=> setB({...b, coreStats: (b.coreStats||[]).map((s:any)=> s.id===id?{...s,value:clamp(val,0,s.max)}:s)});
-    const setCond=(k:string,val:number)=> setB({...b, conditions: {...b.conditions, [k]: clamp(val,0,100)}});
-    const setSem=(k:string,val:number)=> setB({...b, semen: {...b.semen, [k]: Math.max(0,Math.floor(val||0))}});
-    const setCl=(i:number,k:"integrity"|"reveal"|"wetness",val:number)=>{const arr=[...(b.clothing||[])]; const it={...arr[i]}; if(k==="wetness") it.wetness=clamp(Math.floor(val||0),0,200); if(k==="integrity") it.integrity=clamp(Math.floor(val||0),0,1000); if(k==="reveal") it.reveal=clamp(Math.floor(val||0),0,1000); arr[i]=it; setB({...b, clothing:arr}); };
-    return (
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-5xl border-white/10 bg-zinc-900/95 text-zinc-100">
-          <DialogHeader><DialogTitle>Debug Settings</DialogTitle></DialogHeader>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Core Stats</div><div className="mt-2 space-y-2 text-xs">{(b.coreStats||[]).map((s:any)=>(<div key={s.id} className="flex items-center justify-between gap-2"><span className="text-zinc-300">{s.name}</span><div className="flex items-center gap-2"><Input type="number" value={s.value} onChange={e=>setCore(s.id,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /><span className="text-zinc-400">/ {s.max}</span></div></div>))}</div></div>
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Conditions</div><div className="mt-2 space-y-2 text-xs">{["pain","arousal","fatigue","stress","trauma","control","allure"].map(k=>(<div key={k} className="flex items-center justify-between gap-2"><span className="capitalize text-zinc-300">{k}</span><Input type="number" value={b.conditions?.[k]||0} onChange={e=>setCond(k,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /></div>))}</div></div>
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Semen</div><div className="mt-2 space-y-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Volume (ml)</span><Input type="number" value={b.semen?.volume_ml||0} onChange={e=>setSem("volume_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Amount (ml)</span><Input type="number" value={b.semen?.amount_ml||0} onChange={e=>setSem("amount_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div></div></div>
-            <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Cartridge & XP</div><div className="mt-2 text-xs text-zinc-300">Reload default GitHub cartridge.</div><Button onClick={()=>load()} className="mt-2 w-full bg-fuchsia-600/80 text-white hover:bg-fuchsia-500/90">Reload Default Cartridge</Button><div className="mt-4 text-sm font-semibold">XP Pool</div><div className="mt-2 flex items-center justify-between text-xs"><span className="text-zinc-300">XP</span><div className="flex items-center gap-2"><Input type="number" value={xp} onChange={e=>setXp(Number(e.target.value||0))} className="h-7 w-24 bg-zinc-950/60" /><Button size="sm" variant="secondary" onClick={()=>setXp(xp+10)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90">+10</Button></div></div></div>
-            <div className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Clothing Editor</div><div className="mt-2 grid grid-cols-1 gap-2 text-xs">{(b.clothing||[]).map((c:any,i:number)=>(<div key={i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex flex-wrap items-center gap-2"><label className="flex items-center gap-1"><span className="text-zinc-400">Integrity</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.integrity} onChange={e=>setCl(i,"integrity",Number(e.target.value))}/></label><label className="flex items-center gap-1"><span className="text-zinc-400">Reveal</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.reveal} onChange={e=>setCl(i,"reveal",Number(e.target.value))}/></label>{"wetness" in c? <label className="flex items-center gap-1"><span className="text-zinc-400">Wetness</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.wetness||0} onChange={e=>setCl(i,"wetness",Number(e.target.value))}/></label> : null}</div></div></div>))}{!b.clothing?.length&&<div className="text-zinc-400">No equipped clothing.</div>}</div></div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-zinc-950 p-4 text-zinc-100">
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 opacity-20">
@@ -273,7 +315,15 @@ export default function App(){
       </div>
 
       <Header/>
-      <SettingsDialogEl/>
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        bundle={bundle}
+        setBundle={setBundle}
+        xp={xp}
+        setXp={setXp}
+        load={load}
+      />
 
       <Tabs defaultValue="char" className="mt-2">
         <TabsList className="bg-zinc-900/60 text-zinc-200">
