@@ -320,11 +320,10 @@
       "summary": "Replaces visible Trauma at minimal Awareness. Trauma gains accrue and apply at once when Innocence ends; Awareness bonuses are suppressed while Innocent.",
       "thresholds": [
         -20,
-        -19,
-        -15,
-        -11,
-        -7,
-        -3,
+        -16,
+        -12,
+        -8,
+        -4,
         -1,
         0
       ],
