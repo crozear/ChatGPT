@@ -70,20 +70,125 @@ type SettingsDialogProps = {
 };
 
 function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load }: SettingsDialogProps) {
+  const [coreDrafts,setCoreDrafts]=React.useState<Record<string,string>>({});
+  const [coreEditing,setCoreEditing]=React.useState<string|null>(null);
+
   const setCore = React.useCallback((id: string, val: number) => {
-    setBundle(prev => ({
-      ...prev,
-      coreStats: (prev.coreStats || []).map((s: any) =>
-        s.id === id ? { ...s, value: clamp(val, 0, s.max) } : s
-      ),
-    }));
+    setBundle(prev => {
+      const numericVal = Number.isFinite(val) ? val : 0;
+      const innocenceThresholds = prev.statMeta?.innocence?.thresholds as number[] | undefined;
+      const innocenceFloor = Math.min(0, innocenceThresholds?.[0] ?? -20);
+      const nextCoreStats = (prev.coreStats || []).map((s: any) => {
+        if (s.id !== id) return s;
+        if (id === "awareness") {
+          const max = typeof s.max === "number" ? s.max : 100;
+          const capped = Math.min(Math.max(numericVal, innocenceFloor), max);
+          return { ...s, value: capped };
+        }
+        const maxValue = typeof s.max === "number" ? s.max : numericVal;
+        return { ...s, value: clamp(numericVal, 0, maxValue) };
+      });
+
+      const prevAwarenessStat = (prev.coreStats || []).find((s: any) => s.id === "awareness");
+      const prevAwareness = typeof prevAwarenessStat?.value === "number" ? prevAwarenessStat.value : Number(prevAwarenessStat?.value || 0);
+      const nextAwarenessStat = nextCoreStats.find((s: any) => s.id === "awareness");
+      const nextAwareness = typeof nextAwarenessStat?.value === "number" ? nextAwarenessStat.value : Number(nextAwarenessStat?.value || 0);
+      const innocenceGate = prev.innocence?.active ?? true;
+      const innocenceBefore = innocenceGate && prevAwareness < 0;
+      const innocenceNow = innocenceGate && nextAwareness < 0;
+
+      const prevConditions = prev.conditions || {};
+      const prevLedger = prev.innocenceTrauma || {};
+      const prevVisible = typeof prevLedger.visible === "number" ? prevLedger.visible : (prevConditions.trauma ?? 0);
+      const prevStash = typeof prevLedger.stash === "number" ? prevLedger.stash : 0;
+
+      let nextConditions = prevConditions;
+      let nextLedger = prevLedger;
+
+      if (innocenceNow) {
+        const baseline = typeof prevConditions.trauma === "number" ? prevConditions.trauma : prevVisible;
+        const visible = innocenceBefore ? prevVisible : baseline;
+        const stash = innocenceBefore ? prevStash : 0;
+        if (nextConditions === prevConditions) nextConditions = { ...prevConditions };
+        nextConditions.trauma = visible;
+        nextLedger = { stash, visible };
+      } else {
+        const baseVisible = typeof prevConditions.trauma === "number" ? prevConditions.trauma : prevVisible;
+        const combined = clamp(baseVisible + prevStash, 0, 100);
+        if (prevStash || typeof prevConditions.trauma !== "number") {
+          if (nextConditions === prevConditions) nextConditions = { ...prevConditions };
+          nextConditions.trauma = combined;
+        }
+        nextLedger = { stash: 0, visible: typeof nextConditions.trauma === "number" ? nextConditions.trauma : combined };
+      }
+
+      return { ...prev, coreStats: nextCoreStats, conditions: nextConditions, innocenceTrauma: nextLedger };
+    });
   }, [setBundle]);
 
+  React.useEffect(()=>{
+    if(!open){
+      setCoreDrafts({});
+      setCoreEditing(null);
+      return;
+    }
+    setCoreDrafts(prev=>{
+      const next:Record<string,string>={};
+      (bundle.coreStats||[]).forEach((s:any)=>{
+        const numeric=typeof s.value==="number"?s.value:Number(s.value||0);
+        const sanitized=Number.isFinite(numeric)?`${numeric}`:"0";
+        if(coreEditing===s.id && prev[s.id]!==undefined){
+          next[s.id]=prev[s.id];
+        }else{
+          next[s.id]=sanitized;
+        }
+      });
+      return next;
+    });
+  },[open,bundle.coreStats,coreEditing]);
+
+  const commitCoreDraft=React.useCallback((id:string, rawValue:string)=>{
+    const parsed=Number(rawValue);
+    const value=Number.isFinite(parsed)?parsed:0;
+    setCore(id,value);
+  },[setCore]);
+
   const setCond = React.useCallback((key: string, val: number) => {
-    setBundle(prev => ({
-      ...prev,
-      conditions: { ...prev.conditions, [key]: clamp(val, 0, 100) },
-    }));
+    setBundle(prev => {
+      const numericVal = Number.isFinite(val) ? val : 0;
+      const nextVal = clamp(numericVal, 0, 100);
+      const prevConditions = prev.conditions || {};
+      if (key !== "trauma") {
+        return {
+          ...prev,
+          conditions: { ...prevConditions, [key]: nextVal },
+        };
+      }
+
+      const awarenessStat = (prev.coreStats || []).find((s: any) => s.id === "awareness");
+      const awarenessValue = typeof awarenessStat?.value === "number" ? awarenessStat.value : Number(awarenessStat?.value || 0);
+      const innocenceEnabled = (prev.innocence?.active ?? true) && awarenessValue < 0;
+      const ledger = prev.innocenceTrauma || {};
+      const currentVisible = typeof ledger.visible === "number" ? ledger.visible : (prevConditions.trauma ?? 0);
+
+      if (innocenceEnabled) {
+        const nextVisible = Math.min(nextVal, currentVisible);
+        const nextStash = clamp(nextVal - nextVisible, 0, 100);
+        const nextConditions = { ...prevConditions, trauma: nextVisible };
+        return {
+          ...prev,
+          conditions: nextConditions,
+          innocenceTrauma: { stash: nextStash, visible: nextVisible },
+        };
+      }
+
+      const nextConditions = { ...prevConditions, trauma: nextVal };
+      return {
+        ...prev,
+        conditions: nextConditions,
+        innocenceTrauma: { stash: 0, visible: nextVal },
+      };
+    });
   }, [setBundle]);
 
   const setSem = React.useCallback((key: string, val: number) => {
@@ -123,7 +228,7 @@ function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load
       <DialogContent className="max-w-5xl border-white/10 bg-zinc-900/95 text-zinc-100">
         <DialogHeader><DialogTitle>Debug Settings</DialogTitle></DialogHeader>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Core Stats</div><div className="mt-2 space-y-2 text-xs">{(bundle.coreStats||[]).map((s:any)=>(<div key={s.id} className="flex items-center justify-between gap-2"><span className="text-zinc-300">{s.name}</span><div className="flex items-center gap-2"><Input type="number" value={s.value} onChange={e=>setCore(s.id,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /><span className="text-zinc-400">/ {s.max}</span></div></div>))}</div></div>
+          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Core Stats</div><div className="mt-2 space-y-2 text-xs">{(bundle.coreStats||[]).map((s:any)=>{const draftValue=coreDrafts[s.id] ?? `${typeof s.value==="number"?s.value:Number(s.value||0)}`;return(<div key={s.id} className="flex items-center justify-between gap-2"><span className="text-zinc-300">{s.name}</span><div className="flex items-center gap-2"><Input type="number" value={draftValue} onChange={e=>setCoreDrafts(prev=>({...prev,[s.id]:e.target.value}))} onFocus={()=>setCoreEditing(s.id)} onBlur={()=>{setCoreEditing(null);commitCoreDraft(s.id,draftValue);}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur();}}} className="h-7 w-20 bg-zinc-950/60" /><span className="text-zinc-400">/ {s.max}</span></div></div>);})}</div></div>
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Conditions</div><div className="mt-2 space-y-2 text-xs">{["pain","arousal","fatigue","stress","trauma","control","allure"].map(k=>(<div key={k} className="flex items-center justify-between gap-2"><span className="capitalize text-zinc-300">{k}</span><Input type="number" value={bundle.conditions?.[k]||0} onChange={e=>setCond(k,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /></div>))}</div></div>
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Semen</div><div className="mt-2 space-y-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Volume (ml)</span><Input type="number" value={bundle.semen?.volume_ml||0} onChange={e=>setSem("volume_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Amount (ml)</span><Input type="number" value={bundle.semen?.amount_ml||0} onChange={e=>setSem("amount_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div></div></div>
           <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Sexual Skills</div><div className="mt-2 space-y-2 text-xs">{(bundle.sexSkills||[]).map((skill:any,i:number)=>{const pct=typeof skill.pct==="number"?skill.pct:Number(skill.pct||0);const rank=rankForPct(pct, bundle.rankModifiers || FALLBACK_RANK_MOD);return(<div key={skill.id||skill.name||i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex items-center justify-between gap-2"><div className="text-zinc-200">{skill.name||`Skill ${i+1}`}</div><div className="text-[11px] text-zinc-300">Rank {rank}</div></div><div className="mt-2 flex items-center gap-2 text-zinc-400"><label className="flex items-center gap-1"><span>Mastery</span><Input type="number" min={0} max={100} className="h-7 w-20 bg-zinc-950/60" value={pct} onChange={e=>setSkillPct(i,Number(e.target.value))}/></label><span className="text-zinc-500">%</span></div></div>);})}{!bundle.sexSkills?.length&&<div className="text-zinc-400">No sexual skills loaded.</div>}</div></div>
@@ -136,7 +241,7 @@ function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load
 }
 
 export default function App(){
-  const [bundle,setBundle]=useState<AnyObj>({coreStats:[],sexSkills:[],innocence:{},clothing:[],conditions:{pain:0,arousal:0,fatigue:0,stress:0,trauma:0,control:0,allure:0},semen:{volume_ml:0,amount_ml:0,penis_size:"normal"},fluids:{vagina:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},penis:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},anus:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0}},skillNodes:[],bestiary:[],econRules:[],rankModifiers:FALLBACK_RANK_MOD, statMeta:{}});
+  const [bundle,setBundle]=useState<AnyObj>({coreStats:[],sexSkills:[],innocence:{},clothing:[],conditions:{pain:0,arousal:0,fatigue:0,stress:0,trauma:0,control:0,allure:0},semen:{volume_ml:0,amount_ml:0,penis_size:"normal"},fluids:{vagina:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},penis:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},anus:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0}},skillNodes:[],bestiary:[],econRules:[],rankModifiers:FALLBACK_RANK_MOD, statMeta:{}, innocenceTrauma:{stash:0,visible:0}});
   const [settingsOpen,setSettingsOpen]=useState(false);
   const [xp,setXp]=useState(0);
   const [acq,setAcq]=useState<Set<string>>(new Set());
@@ -144,21 +249,28 @@ export default function App(){
   const [cartUrl,setCartUrl]=useState("");
   const rankMod:Record<string,number>=bundle.rankModifiers||FALLBACK_RANK_MOD;
 
-  const load=async(url?:string)=>{const res=await fetch(url||DEFAULT_CART_URL);const data=await res.json();setBundle((b:any)=>({
-    ...b,
-    coreStats:data.coreStats||[],
-    sexSkills:data.sexSkills||[],
-    innocence:data.innocence||{},
-    clothing:data.equippedClothing||[],
-    conditions:data.conditions||b.conditions,
-    semen:data.semen||b.semen,
-    fluids:data.fluids||b.fluids,
-    skillNodes:data.skillNodes||[],
-    bestiary:data.bestiary||[],
-    econRules:data.econRules||[],
-    rankModifiers:data.rankModifiers||FALLBACK_RANK_MOD,
-    statMeta:data.statMeta||b.statMeta,
-  })); setAcq(new Set()); setXp(0);};
+  const load=async(url?:string)=>{const res=await fetch(url||DEFAULT_CART_URL);const data=await res.json();setBundle((b:any)=>{
+    const nextConditions= data.conditions ? { ...data.conditions } : { ...(b.conditions || {}) };
+    const traumaBase=typeof nextConditions.trauma==="number" ? nextConditions.trauma : (b.conditions?.trauma ?? 0);
+    const traumaClamped=clamp(traumaBase,0,100);
+    nextConditions.trauma=traumaClamped;
+    return {
+      ...b,
+      coreStats:data.coreStats||[],
+      sexSkills:data.sexSkills||[],
+      innocence:data.innocence||{},
+      clothing:data.equippedClothing||[],
+      conditions:nextConditions,
+      semen:data.semen||b.semen,
+      fluids:data.fluids||b.fluids,
+      skillNodes:data.skillNodes||[],
+      bestiary:data.bestiary||[],
+      econRules:data.econRules||[],
+      rankModifiers:data.rankModifiers||FALLBACK_RANK_MOD,
+      statMeta:data.statMeta||b.statMeta,
+      innocenceTrauma:{ stash:0, visible:traumaClamped },
+    };
+  }); setAcq(new Set()); setXp(0);};
   useEffect(()=>{load()},[]);
 
   // Stat footer from meta or generic ladder
@@ -213,14 +325,32 @@ export default function App(){
     </div>
   );
 
-  const CoreCard=({s}:{s:any})=>{const f=stageOf(s);return(
-    <div className={`${PANEL} p-3`}>
-      <div className="flex items-center justify-between"><div className={`text-sm font-semibold ${HEAD}`}>{s.name}</div><div className="text-xs text-zinc-300/90">{s.value}/{s.max}</div></div>
-      <div className={`mt-1 text-xs ${SUB}`}>{s.desc}</div>
-      <Gauge v={s.value} max={s.max}/>
-      <div className="mt-2 rounded-xl border border-white/10 bg-zinc-950/60 p-2"><div className="text-[11px] text-zinc-200">Stage: {f.stage}{s.meta?.stages || (bundle as any)?.statMeta?.[s?.id]?.stages ? ` • ${f.index}/${f.steps-1}` : ""}</div><div className="mt-1 text-[11px] text-zinc-400">{f.summary}</div></div>
-    </div>
-  )};
+  const CoreCard=({s}:{s:any})=>{
+    const rawValue=typeof s.value==="number"?s.value:Number(s.value??0);
+    const innocenceMeta=(bundle as any)?.statMeta?.innocence;
+    const innocenceThresholds=innocenceMeta?.thresholds as number[]|undefined;
+    const innocenceFloor=Math.min(0,innocenceThresholds?.[0]??-20);
+    const innocenceToggle=(bundle.innocence?.active??true)&&rawValue<0;
+    const asInnocence=s.id==="awareness"&&innocenceToggle;
+    const displayMaxBase=asInnocence?Math.abs(innocenceFloor):s.max;
+    const displayValueBase=asInnocence?Math.abs(Math.max(rawValue,innocenceFloor)):rawValue;
+    const safeDisplayMax=Number.isFinite(displayMaxBase)&&displayMaxBase!==0?displayMaxBase:1;
+    const safeDisplayValue=Number.isFinite(displayValueBase)?Math.min(displayValueBase,safeDisplayMax):0;
+    const cardName=asInnocence?"Innocence":s.name;
+    const cardDesc=asInnocence?(innocenceMeta?.summary||s.desc):s.desc;
+    const stageTarget=asInnocence?{...s,id:"innocence",value:rawValue,desc:cardDesc}:s;
+    const stageInfo=stageOf(stageTarget);
+    const metaSource=stageTarget.meta||(bundle as any)?.statMeta?.[stageTarget?.id];
+    const hasStages=Array.isArray(metaSource?.stages);
+    return(
+      <div className={`${PANEL} p-3`}>
+        <div className="flex items-center justify-between"><div className={`text-sm font-semibold ${HEAD}`}>{cardName}</div><div className="text-xs text-zinc-300/90">{safeDisplayValue}/{safeDisplayMax}</div></div>
+        <div className={`mt-1 text-xs ${SUB}`}>{cardDesc}</div>
+        <Gauge v={safeDisplayValue} max={safeDisplayMax}/>
+        <div className="mt-2 rounded-xl border border-white/10 bg-zinc-950/60 p-2"><div className="text-[11px] text-zinc-200">Stage: {stageInfo.stage}{hasStages?` • ${stageInfo.index}/${stageInfo.steps-1}`:""}</div><div className="mt-1 text-[11px] text-zinc-400">{stageInfo.summary}</div></div>
+      </div>
+    );
+  };
 
   const SexSkills=()=> (
     <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Sexual Skills</CardTitle></CardHeader><CardContent className="grid grid-cols-2 gap-2">
