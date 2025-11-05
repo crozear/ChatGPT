@@ -319,6 +319,7 @@
     "innocence": {
       "summary": "Replaces visible Trauma at minimal Awareness. Trauma gains accrue and apply at once when Innocence ends; Awareness bonuses are suppressed while Innocent.",
       "thresholds": [
+        -20,
         -19,
         -15,
         -11,
@@ -333,6 +334,7 @@
         "You are curious.",
         "You are perplexed.",
         "You are uncertain.",
+        "You understand.",
         "You understand."
       ]
     },
