@@ -325,6 +325,7 @@
         -11,
         -7,
         -3,
+        -1,
         0
       ],
       "stages": [
@@ -334,7 +335,6 @@
         "You are curious.",
         "You are perplexed.",
         "You are uncertain.",
-        "You understand.",
         "You understand."
       ]
     },
