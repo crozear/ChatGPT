@@ -319,11 +319,12 @@
     "innocence": {
       "summary": "Replaces visible Trauma at minimal Awareness. Trauma gains accrue and apply at once when Innocence ends; Awareness bonuses are suppressed while Innocent.",
       "thresholds": [
+        -24,
+        -20,
         -16,
         -12,
         -8,
         -4,
-        -1,
          0
       ],
       "stages": [
