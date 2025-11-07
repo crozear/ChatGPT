@@ -20,6 +20,11 @@
     "types": [
       "vite/client",
       "vitest/globals"
+    ],
+    "typeRoots": [
+      "./src/types",
+      "./node_modules/@types",
+      "./node_modules"
     ]
   },
   "include": [
