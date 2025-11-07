@@ -24,6 +24,14 @@ npm run dev
 
 The dev server is configured to listen on `0.0.0.0:1111`, so you can open the printed URL (for example, `http://127.0.0.1:1111/`) directly in your browser outside of the container.
 
+## Running tests
+
+Execute the unit test suite:
+
+```bash
+npm test
+```
+
 ## Using the UI
 
 The application fetches your cartridge from `raw.githubusercontent.com` with CORS enabled. Once the dev server is running, open the app in your browser and interact with the UI as you normally would.
