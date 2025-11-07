@@ -1,4 +1,4 @@
-UI json: cartridges/ui.v0.5.json
+UI json: cartridges/ui.v0.6.json
 
 # H-dungeon Codex Starter
 

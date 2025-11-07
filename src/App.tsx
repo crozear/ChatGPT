@@ -1,519 +1,310 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Settings } from "lucide-react";
+// App.tsx (or wherever your root state is)
+import React, {useCallback as C, useEffect as E, useMemo as M, useRef as R, useState as S} from "react";
+import Button from "./components/ui/button";
+import * as L5 from "./lib/engine";
+import cart from "./lib/ui.v0.6.json";
 
-/*
-  Lilith-5 H-dungeon UI v0.6 (compact)
-  - Always-visible stat footers (stage + summary), sourced from cartridge meta when present
-  - Sexual Skills show concrete rank effects (F→S) using cartridge rankModifiers or fallback
-  - Clothing Editor in Debug (integrity / reveal / wetness)
-  - Local XP pool with prereq validation + Unlocked Commands sidebar
-  - Per-encounter Intensity 1–5 selector with descriptors
-  Notes: keep this file lean; push copy/data into ui.v0.5.json on GitHub. Client-side only.
-*/
-
-const DEFAULT_CART_URL = "https://raw.githubusercontent.com/crozear/ChatGPT/main/cartridges/ui.v0.5.json";
-const PANEL = "border border-white/10 bg-zinc-900/80 backdrop-blur rounded-2xl";
-const HEAD = "text-zinc-50";
-const SUB = "text-zinc-300/90";
-
-// Intensity copy is short and stable; safe to keep local.
-const INTENSITY: Record<1|2|3|4|5,string> = {
-  1: "playful: teasing, light commands, soft pacing",
-  2: "spicy: explicit talk, firm grip, spanking",
-  3: "raw: light choke/gag, public flash allowed",
-  4: "brutal: heavy choke, rough pound, degradation, restraint",
-  5: "depraved: hypno, breeding/oviposition, crowd use",
-};
-
-// Fallback rank modifiers if cartridge doesn’t provide them
-const RANKS = ["F","F+","D","C","B","B+","A","S"] as const;
-const FALLBACK_RANK_MOD: Record<(typeof RANKS)[number], number> = { F:-10, "F+":-5, D:-2, C:3, B:7, "B+":10, A:15, S:20 };
-const RANK_BUCKETS: Array<{ rank: (typeof RANKS)[number]; min: number }> = [
-  { rank: "S", min: 95 },
-  { rank: "A", min: 80 },
-  { rank: "B+", min: 72 },
-  { rank: "B", min: 65 },
-  { rank: "C", min: 40 },
-  { rank: "D", min: 30 },
-  { rank: "F+", min: 15 },
-  { rank: "F", min: 0 },
-];
-
-// Small helpers
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
-const rankForPct=(pct:number, modifiers:Record<string,number>|undefined)=>{
-  const ladder=RANK_BUCKETS.filter(bucket=>modifiers? bucket.rank in modifiers : true);
-  const match=ladder.find(bucket=>pct>=bucket.min);
-  return match?.rank ?? (ladder[ladder.length-1]?.rank ?? "F");
-};
+const RANKS=[["S",100],["A",80],["B",60],["C",40],["D",20],["F",0]],DCM={F:-10,D:-5,C:0,B:5,A:10,S:15};
+const rank=(p:number)=>{for(const[r,m]of RANKS)if(p>=m)return r;return"F"};
+const CAR={version:"ui.v0.6",coreStats:[{id:"awareness",name:"Awareness",value:0,max:100},{id:"purity",name:"Purity",value:68,max:100},{id:"physique",name:"Physique",value:54,max:100},{id:"will",name:"Willpower",value:62,max:100},{id:"beauty",name:"Beauty",value:71,max:100},{id:"promiscuity",name:"Promiscuity",value:36,max:100},{id:"exhibitionism",name:"Exhibitionism",value:28,max:100},{id:"deviancy",name:"Deviancy",value:12,max:100}],innocence:{active:true},conditions:{pain:12,arousal:38,fatigue:8,stress:17,trauma:4,control:74,allure:22},equippedClothing:[{slot:"top",name:"School Blouse",integrity:88,reveal:12,wetness:0,visible:true},{slot:"bottom",name:"Pleated Skirt",integrity:82,reveal:26,wetness:0,visible:true},{slot:"underwear",name:"Frilly Cotton Panties",integrity:76,reveal:38,wetness:42,visible:false}],sexSkills:[{name:"Seduction",rank:"A",pct:81}],skillNodes:[],econRules:[],statMeta:{awareness:{thresholds:[0,1,10,20,30,40,50,100]},innocence:{thresholds:[-20,-19,-16,-12,-8,-4,0]},beauty:{}}};
+const CN={p:"p-3",b:"border border-white/10",r:"rounded-2xl",g:"bg-zinc-900/80",z:"bg-zinc-950/60",t:"text-zinc-100",s:"text-zinc-300",x:"text-zinc-400"};
+const BOX=`${CN.b} ${CN.r} ${CN.g}`;
+const get=(o:any,p:string)=>p.split('.').reduce((a:any,k:string)=>a?.[k],o);
 const Gauge=({v,max}:{v:number;max:number})=>{const p=clamp((v/max)*100,0,100);return(<div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-zinc-800"><div style={{width:`${p}%`}} className="h-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500"/></div>)};
-const Pill=({children}:{children:React.ReactNode})=> <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-zinc-100">{children}</span>;
-
-// Types are intentionally loose to stay short
-type AnyObj = Record<string,any>;
-
-type SettingsDialogProps = {
-  open: boolean;
-  onOpenChange: (value: boolean) => void;
-  bundle: AnyObj;
-  setBundle: React.Dispatch<React.SetStateAction<AnyObj>>;
-  xp: number;
-  setXp: React.Dispatch<React.SetStateAction<number>>;
-  load: (url?: string) => Promise<void>;
+const Slider=({label,value,min=0,max=100,step=1,onChange}:{label:string;value:number;min?:number;max?:number;step?:number;onChange:(n:number)=>void})=> (<div className="grid gap-1"><span className={`text-xs ${CN.x}`}>{label}: <span className={`${CN.t} font-medium`}>{value}</span></span><input type="range" min={min} max={max} step={step} value={value} onInput={(e:any)=>onChange(+e.target.value)} className="w-full"/></div>);
+const DEFAULT_COND:{[k:string]:string[]}={
+  pain:["You feel okay.","You are upset.","Tears well in your eyes.","Tears run down your face.","You are crying.","You cry and whimper.","You sob uncontrollably."],
+  arousal:["You feel cold.","You feel sensual.","You feel aroused.","You feel lustful.","You feel horny.","A heat rises within.","You shake with arousal."],
+  fatigue:["You are refreshed.","You are wide awake.","You are alert.","You are wearied.","You are tired.","You are fatigued.","You are exhausted."],
+  stress:["You are serene.","You are placid.","You are calm.","You are tense.","You are strained.","You are distressed.","You are overwhelmed!"],
+  trauma:["You are healthy.","You are uneasy.","You are nervous.","You are troubled.","You are disturbed.","You are tormented.","You feel numb."],
+  control:["You are confident.","You are insecure.","You are worried.","You are anxious.","You are scared.","You are frightened.","You are terrified."]
 };
-
-function SettingsDialog({ open, onOpenChange, bundle, setBundle, xp, setXp, load }: SettingsDialogProps) {
-  const [coreDrafts,setCoreDrafts]=React.useState<Record<string,string>>({});
-  const [coreEditing,setCoreEditing]=React.useState<string|null>(null);
-
-  const setCore = React.useCallback((id: string, val: number) => {
-    setBundle(prev => {
-      const numericVal = Number.isFinite(val) ? val : 0;
-      const innocenceThresholds = prev.statMeta?.innocence?.thresholds as number[] | undefined;
-      const innocenceFloor = Math.min(0, innocenceThresholds?.[0] ?? -20);
-      const nextCoreStats = (prev.coreStats || []).map((s: any) => {
-        if (s.id !== id) return s;
-        if (id === "awareness") {
-          const max = typeof s.max === "number" ? s.max : 100;
-          const capped = Math.min(Math.max(numericVal, innocenceFloor), max);
-          return { ...s, value: capped };
-        }
-        const maxValue = typeof s.max === "number" ? s.max : numericVal;
-        return { ...s, value: clamp(numericVal, 0, maxValue) };
-      });
-
-      const prevAwarenessStat = (prev.coreStats || []).find((s: any) => s.id === "awareness");
-      const prevAwareness = typeof prevAwarenessStat?.value === "number" ? prevAwarenessStat.value : Number(prevAwarenessStat?.value || 0);
-      const nextAwarenessStat = nextCoreStats.find((s: any) => s.id === "awareness");
-      const nextAwareness = typeof nextAwarenessStat?.value === "number" ? nextAwarenessStat.value : Number(nextAwarenessStat?.value || 0);
-      const innocenceGate = prev.innocence?.active ?? true;
-      const innocenceBefore = innocenceGate && prevAwareness < 0;
-      const innocenceNow = innocenceGate && nextAwareness < 0;
-
-      const prevConditions = prev.conditions || {};
-      const prevLedger = prev.innocenceTrauma || {};
-      const prevVisible = typeof prevLedger.visible === "number" ? prevLedger.visible : (prevConditions.trauma ?? 0);
-      const prevStash = typeof prevLedger.stash === "number" ? prevLedger.stash : 0;
-
-      let nextConditions = prevConditions;
-      let nextLedger = prevLedger;
-
-      if (innocenceNow) {
-        const baseline = typeof prevConditions.trauma === "number" ? prevConditions.trauma : prevVisible;
-        const visible = innocenceBefore ? prevVisible : baseline;
-        const stash = innocenceBefore ? prevStash : 0;
-        if (nextConditions === prevConditions) nextConditions = { ...prevConditions };
-        nextConditions.trauma = visible;
-        nextLedger = { stash, visible };
-      } else {
-        const baseVisible = typeof prevConditions.trauma === "number" ? prevConditions.trauma : prevVisible;
-        const combined = clamp(baseVisible + prevStash, 0, 100);
-        if (prevStash || typeof prevConditions.trauma !== "number") {
-          if (nextConditions === prevConditions) nextConditions = { ...prevConditions };
-          nextConditions.trauma = combined;
-        }
-        nextLedger = { stash: 0, visible: typeof nextConditions.trauma === "number" ? nextConditions.trauma : combined };
-      }
-
-      return { ...prev, coreStats: nextCoreStats, conditions: nextConditions, innocenceTrauma: nextLedger };
-    });
-  }, [setBundle]);
-
-  React.useEffect(()=>{
-    if(!open){
-      setCoreDrafts({});
-      setCoreEditing(null);
-      return;
-    }
-    setCoreDrafts(prev=>{
-      const next:Record<string,string>={};
-      (bundle.coreStats||[]).forEach((s:any)=>{
-        const numeric=typeof s.value==="number"?s.value:Number(s.value||0);
-        const sanitized=Number.isFinite(numeric)?`${numeric}`:"0";
-        if(coreEditing===s.id && prev[s.id]!==undefined){
-          next[s.id]=prev[s.id];
-        }else{
-          next[s.id]=sanitized;
-        }
-      });
-      return next;
-    });
-  },[open,bundle.coreStats,coreEditing]);
-
-  const commitCoreDraft=React.useCallback((id:string, rawValue:string)=>{
-    const parsed=Number(rawValue);
-    const value=Number.isFinite(parsed)?parsed:0;
-    setCore(id,value);
-  },[setCore]);
-
-  const setCond = React.useCallback((key: string, val: number) => {
-    setBundle(prev => {
-      const numericVal = Number.isFinite(val) ? val : 0;
-      const nextVal = clamp(numericVal, 0, 100);
-      const prevConditions = prev.conditions || {};
-      if (key !== "trauma") {
-        return {
-          ...prev,
-          conditions: { ...prevConditions, [key]: nextVal },
-        };
-      }
-
-      const awarenessStat = (prev.coreStats || []).find((s: any) => s.id === "awareness");
-      const awarenessValue = typeof awarenessStat?.value === "number" ? awarenessStat.value : Number(awarenessStat?.value || 0);
-      const innocenceEnabled = (prev.innocence?.active ?? true) && awarenessValue < 0;
-      const ledger = prev.innocenceTrauma || {};
-      const currentVisible = typeof ledger.visible === "number" ? ledger.visible : (prevConditions.trauma ?? 0);
-
-      if (innocenceEnabled) {
-        const nextVisible = Math.min(nextVal, currentVisible);
-        const nextStash = clamp(nextVal - nextVisible, 0, 100);
-        const nextConditions = { ...prevConditions, trauma: nextVisible };
-        return {
-          ...prev,
-          conditions: nextConditions,
-          innocenceTrauma: { stash: nextStash, visible: nextVisible },
-        };
-      }
-
-      const nextConditions = { ...prevConditions, trauma: nextVal };
+const stageOf=(s:{id:string;value:number;max:number;meta?:any;desc?:string},m:any)=>{const M=m?.[s?.id]||s?.meta;if(M?.thresholds&&M?.stages){const th=M.thresholds;let i=th.filter((t:number)=>(s.value??0)>=t).length-1;i=clamp(i,0,(M.stages.length-1));return{stage:M.stages[i],summary:M.summary||s.desc||"",index:i,steps:M.stages.length}}const steps=(M?.stages?.length)||7;const i=clamp(Math.round(((s.value||0)/(s.max||1))*(steps-1)),0,steps-1);return{stage:M?.stages?M.stages[i]:"",summary:M?.summary||s.desc||"",index:i,steps}};
+const integ=(n:number)=>n<=0?"destroyed":n<20?"tattered":n<50?"torn":n<90?"frayed":"undamaged";
+const wetlab=(n:number)=>n>=100?"soaked through (transparent)":n>=80?"wet":n>=50?"damp":n<40?"dry":n<70?"drying out":n<90?"dried enough to conceal":"";
+const cat=(s:string)=>s==="top"?"tops":s==="bottom"?"bottoms":s==="underwear"?"under bottoms":s==="under_top"?"under tops":s==="outfit"?"outfits":s;
+const condText=(b:any,k:string,v:number)=>{const H={pain:[0,1,20,40,60,80,100],arousal:[0,1,20,40,60,80,100],fatigue:[0,1,20,40,60,80,100],stress:[0,1,20,40,60,80,100],trauma:[0,1,20,40,60,80,100],control:[0,20,40,60,70,80,100]};const th=H[k]||[0];let i=0;for(let t=0;t<th.length;t++)if(v>=th[t])i=t;const lab=b?.text?.conditions?.[k];if(lab?.length)return lab[i]||"";return DEFAULT_COND[k]?.[i]||""};
+const Card=({s,meta,onChange,awMode,onGainAw,desc}:{s:any;meta:any;onChange:(id:string,v:number)=>void;awMode?:boolean;onGainAw?:(n:number)=>void;desc?:string})=>{const i=stageOf(s,meta),[drag,setD]=S(false),[tmp,setT]=S(+s.value||0);E(()=>{if(!drag&&!awMode)setT(+s.value||0)},[s.value,drag,awMode]);return(<div className={`${BOX} ${CN.p}`}><div className="flex items-center justify-between"><div className={`text-sm font-semibold ${CN.t}`}>{s.name}</div><div className={`text-xs ${CN.s}`}>{s.value}/{s.max}</div></div><div className={`mt-1 text-xs ${CN.s}`}>{desc||s.desc||""}</div><Gauge v={s.value||0} max={s.max||100}/><div className={`mt-2 ${CN.b} ${CN.r} ${CN.z} p-2`}><div className={`text-[11px] ${CN.t}`}>Stage: {i.stage}{i.steps?` • ${i.index}/${i.steps-1}`:""}</div><div className={`mt-1 text-[11px] ${CN.x}`}>{i.summary}</div></div><div className="mt-2 grid gap-1">{awMode?(<><span className={`text-xs ${CN.x}`}>Gain Awareness: <span className={`${CN.t} font-medium`}>{tmp}</span></span><input type="range" min={0} max={s.max||100} step={1} value={tmp} onInput={(e:any)=>{const v=+e.target.value;const d=Math.max(0,v-tmp);setT(v);onGainAw&&onGainAw(d)}} onPointerUp={()=>setT(0)} className="w-full"/><div className={`text-[11px] ${CN.x}`}>Awareness reduces Innocence first, then fills Awareness.</div></>):(<><span className={`text-xs ${CN.x}`}>Adjust: <span className={`${CN.t} font-medium`}>{tmp}</span></span><input type="range" min={0} max={s.max||100} step={1} value={tmp} onPointerDown={()=>setD(true)} onPointerUp={()=>setD(false)} onMouseUp={()=>setD(false)} onTouchEnd={()=>setD(false)} onInput={(e:any)=>{const v=+e.target.value;setT(v);onChange(s.id,v)}} className="w-full"/></>)}</div></div>)};
+const allureCalc=(cs:any[],bi:number,vis:{piss:boolean;goo:boolean;cum:boolean;femcum:boolean})=>{const tr=(c:any)=>(c?.wetness||0)>=100,vs=(c:any)=>!!c?.visible,cv=(a:string[])=>cs.some((c:any)=>a.includes(c.slot)&&vs(c)&&!tr(c)),tp=cv(["top","outfit"]),bt=cv(["bottom","outfit"]),ut=cs.find((c:any)=>c.slot==="under_top"),ub=cs.find((c:any)=>c.slot==="underwear"),utv=!!ut&&vs(ut)&&!tp&&!tr(ut),ubv=!!ub&&vs(ub)&&!bt&&!tr(ub),ce=!tp&&(!ut||tr(ut)),le=!bt&&(!ub||tr(ub)),rv=cs.reduce((a:number,c:any)=>a+((vs(c)&&!tr(c))?Math.round((+c.reveal||0)/10):0),0),fl=5*[vis.piss,vis.goo,vis.cum,vis.femcum].filter(Boolean).length;return clamp(rv+(ce?10:0)+(le?10:0)+(utv?5:0)+(ubv?5:0)+5*bi+fl,0,100)};
+const innStage=(v:number)=>({stage:v===-20?"You are oblivious.":v<=-17?"You are naive.":v<=-13?"You are trusting.":v<=-9?"You are curious.":v<=-5?"You are perplexed.":"You are uncertain.",index:v===-20?0:v<=-17?1:v<=-13?2:v<=-9?3:v<=-5?4:5,steps:6});
+const pLab=(x:number)=>x<1?"Micro":x<3?"Tiny":x<5?"Small":x<7?"Normal":x<10?"Large":x<=12?"Huge":"";
+const aDesc=(n:number)=>n>=60?"You look like you need to be ravaged.":n>=40?"You look perverted.":n>=30?"You look lewd.":n>=20?"You stand out.":n>=15?"You attract attention.":n>=10?"You attract glances.":"You look unremarkable.";
+export default function App(){
+  const LS="ui.v0.6";
+  const [b, setB] = S(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS) || "{}");
+      const prev  = saved.bundle || { ...CAR, clothing: CAR.equippedClothing };
       return {
         ...prev,
-        conditions: nextConditions,
-        innocenceTrauma: { stash: 0, visible: nextVal },
+        fluids: prev.fluids || cart.fluids,
+        tuning: prev.tuning || cart.tuning,
+        wet:    prev.wet    || { vagina: 60, anus: 0, penis: 0 },
+        minutesPerTurn: prev.minutesPerTurn ?? (saved.turnMins ?? 10),
       };
-    });
-  }, [setBundle]);
+    } catch {
+      return {
+        ...CAR,
+        clothing: CAR.equippedClothing,
+        fluids: cart.fluids,
+        tuning: cart.tuning,
+        wet: { vagina: 60, anus: 0, penis: 0 },
+        minutesPerTurn: 10,
+      };
+    }
+  });
+  const coreVal = C((id:string) =>
+  +(b.coreStats?.find((s:any)=>s.id===id)?.value || 0),
+  [b.coreStats]
+  );
 
-  const setSem = React.useCallback((key: string, val: number) => {
-    setBundle(prev => ({
+  const toEngine = C((): L5.EngineState => ({
+    fluids: b.fluids,
+    wet: b.wet,
+    clothing: b.clothing || [],
+    core: {
+      awareness: coreVal("awareness"),
+      purity: coreVal("purity"),
+      physique: coreVal("physique"),
+      will: coreVal("will"),
+      beauty: coreVal("beauty"),
+      promiscuity: coreVal("promiscuity"),
+      exhibitionism: coreVal("exhibitionism"),
+      deviancy: coreVal("deviancy"),
+    },
+    cond: b.conditions,
+    minutesPerTurn: b.minutesPerTurn ?? 10,
+    tuning: b.tuning,
+  }), [b, coreVal]);
+
+  const applyEngine = C((s: L5.EngineState) => {
+    setB((prev: any) => ({
       ...prev,
-      semen: { ...prev.semen, [key]: Math.max(0, Math.floor(val || 0)) },
+      wet: s.wet,
+      clothing: s.clothing,
+      conditions: s.cond,
+      fluids: s.fluids,
+      tuning: s.tuning,
+      minutesPerTurn: s.minutesPerTurn,
     }));
-  }, [setBundle]);
+  }, []);
 
-  const setCl = React.useCallback((index: number, field: "integrity"|"reveal"|"wetness", val: number) => {
-    setBundle(prev => {
-      const clothing = [...(prev.clothing || [])];
-      const item = { ...clothing[index] };
-      if (field === "wetness") item.wetness = clamp(Math.floor(val || 0), 0, 20);
-      if (field === "integrity") item.integrity = clamp(Math.floor(val || 0), 0, 100);
-      if (field === "reveal") item.reveal = clamp(Math.floor(val || 0), 0, 100);
-      clothing[index] = item;
-      return { ...prev, clothing };
-    });
-  }, [setBundle]);
+  const save = C((next:any) => setB(next), []);
+  const tx=C((p:any,fb="")=>get(b?.text||{},p)??fb,[b]);
+  const[loc,setLoc]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").location||"The Dungeon"}catch{return"The Dungeon"}});
+  const[int,setInt]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").intensity||2}catch{return 2}});
+  const[hasP,setHP]=S(()=>{try{return!!JSON.parse(localStorage.getItem(LS)||"{}").hasPenis}catch{return true}});
+  const[pIn,setPIn]=S(()=>{try{return +JSON.parse(localStorage.getItem(LS)||"{}").penisInches||6}catch{return 6}});
+  const[hasV,setHV]=S(()=>{try{return!!JSON.parse(localStorage.getItem(LS)||"{}").hasVagina}catch{return true}});
+  const[vDep,setVD]=S(()=>{try{return +JSON.parse(localStorage.getItem(LS)||"{}").vagDepth||6}catch{return 6}});
+  const[vWid,setVW]=S(()=>{try{return +JSON.parse(localStorage.getItem(LS)||"{}").vagWidth||1.5}catch{return 1.5}});
+  const[tits,setTits]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").titsSize||"Modest (C)"}catch{return"Modest (C)"}});
+  const[ass,setAss]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").assSize||"Round"}catch{return"Round"}});
+  const[gender,setG]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").gender||"Female"}catch{return"Female"}});
+  const[visF,setVF]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").visibleFluids||{piss:false,goo:false,cum:false,femcum:false}}catch{return{piss:false,goo:false,cum:false,femcum:false}}});
+  const[turn,setTurn]=S(()=>{try{return +JSON.parse(localStorage.getItem(LS)||"{}").turnMins||10}catch{return 10}});
+  const[inn,setInn]=S(()=>{try{const o=JSON.parse(localStorage.getItem(LS)||"{}");const v=o.innocencePool;return(v===undefined||v===null||Number.isNaN(+v))?-20:+v}catch{return-20}});
+  const[stored,setStored]=S(()=>{try{return +JSON.parse(localStorage.getItem(LS)||"{}").storedTrauma||0}catch{return 0}});
+  const[tShadow,setTShadow]=S(()=>{try{return +JSON.parse(localStorage.getItem(LS)||"{}").tShadow||0}catch{return 0}});
+  const[stash,setStash]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").stash||[]}catch{return[]}});
+  const[log,setLog]=S(()=>{try{return JSON.parse(localStorage.getItem(LS)||"{}").log||["Session ready."]}catch{return["Session ready."]}});
+  const push=C((x:any)=>setLog((l:any)=>[`${new Date().toLocaleTimeString()}  ${x}`,...l].slice(0,200)),[]);
+  const[ri,setRI]=S(0),[dc,setDC]=S(12),[last,setLast]=S<any>(null);
+  const core=C((id:string)=>(b.coreStats||[]).find((s:any)=>s.id===id),[b.coreStats]);
+  const beauty=+(core("beauty")?.value||0);
+  const innocActive=(inn<0);const prevInRef=R(innocActive);
+  const setCore=C((id:string,val:number)=>setB((b:any)=>{if(id!=="awareness")return{...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id===id?{...s,value:clamp((val|0),0,s.max||100)}:s)};if(innocActive)return{...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id==="awareness"?{...s,value:0}:s)};return{...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id==="awareness"?{...s,value:clamp((val|0),0,s.max||100)}:s)}}),[innocActive]);
+  const gainAw=C((am:number)=>setB((b:any)=>{const a=[...(b.coreStats||[])],i=a.findIndex((s:any)=>s.id==="awareness"),cur=+(a[i]?.value||0),mx=+(a[i]?.max||100);if(innocActive){const need=-inn;if(am<=need){setInn((p:number)=>p+am);push(`Innocence reduced by ${am}`);return{...b,coreStats:a.map((s:any,k:number)=>k===i?{...s,value:0}:s)}}const rem=am-need;setInn(0);const nv=clamp(cur+rem,0,mx);push(`Innocence ended; Awareness +${rem}`);return{...b,coreStats:a.map((s:any,k:number)=>k===i?{...s,value:nv}:s)}}const nv=clamp(cur+am,0,mx);return{...b,coreStats:a.map((s:any,k:number)=>k===i?{...s,value:nv}:s)}}),[innocActive,push]);
+  const setCond=C((k:string,val:number)=>{if(k==="arousal"){const prev=+(b.conditions.arousal||0);const will=+(core("will")?.value||0);const t=(b as any).tuning||cart.tuning;const r=L5.applyStimulation(prev,will,val-prev,t);const eng={fluids:cart.fluids,wet:{...b.wet},clothing:b.clothing||[],core:{awareness:+(core("awareness")?.value||0),purity:+(core("purity")?.value||0),physique:+(core("physique")?.value||0),will:+(core("will")?.value||0),beauty:+(core("beauty")?.value||0),promiscuity:+(core("promiscuity")?.value||0),exhibitionism:+(core("exhibitionism")?.value||0),deviancy:+(core("deviancy")?.value||0)},cond:{...b.conditions,arousal:r.arousal},minutesPerTurn:turn,tuning:t};const next=L5.tickBodyWetness(eng,prev,false);setB((bb:any)=>({...bb,wet:next.wet,conditions:{...bb.conditions,arousal:r.arousal}}));if(r.stunnedTurns)push(`Orgasm → stunned ${r.stunnedTurns} turn${r.stunnedTurns===1?"":"s"}`);return}if(k!=="trauma"){setB((b:any)=>({...b,conditions:{...(b.conditions||{}),[k]:clamp((val|0),0,100)}}));return}const tgt=clamp((val|0),0,100);if(innocActive){const d=tgt-tShadow;if(d>0){setStored((t:number)=>clamp(t+d,0,100));setTShadow(tgt);push(`Trauma ${d} banked under Innocence`);return}if(d<0){let rem=-d,used=0;setStored((t:number)=>{used=Math.min(t,rem);return t-used});rem-=used;setTShadow(tgt);if(rem>0)setB((b:any)=>{const cur=+(b.conditions?.trauma||0);return{...b,conditions:{...b.conditions,trauma:clamp(cur-rem,0,100)}}});return}setTShadow(tgt);return}setTShadow(tgt);setB((b:any)=>({...b,conditions:{...(b.conditions||{}),trauma:tgt}}))},[innocActive,tShadow,push,turn,core,b.conditions,b.clothing]);
+    // track the last committed arousal and a draft while dragging
+  const lastACommitRef = R<number>(b.conditions?.arousal ?? 0);
+  const arousalDraftRef = R<number | null>(null);
 
-  const setSkillPct = React.useCallback((index: number, value: number) => {
-    setBundle(prev => {
-      const sexSkills = [...(prev.sexSkills || [])];
-      if (!sexSkills[index]) return prev;
-      const skill = { ...sexSkills[index] };
-      const pct = clamp(Math.floor(Number(value) || 0), 0, 100);
-      skill.pct = pct;
-      skill.rank = rankForPct(pct, prev.rankModifiers || FALLBACK_RANK_MOD);
-      sexSkills[index] = skill;
-      return { ...prev, sexSkills };
-    });
-  }, [setBundle]);
+  const commitArousal = (finalVal: number) => {
+    const prev = lastACommitRef.current;
+    const will = +((b.coreStats||[]).find(s=>s.id==="will")?.value || 0);
+    const t = (b as any).tuning || cart.tuning;
+    const r = L5.applyStimulation(prev, will, finalVal - prev, t);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl border-white/10 bg-zinc-900/95 text-zinc-100">
-        <DialogHeader><DialogTitle>Debug Settings</DialogTitle></DialogHeader>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Core Stats</div><div className="mt-2 space-y-2 text-xs">{(bundle.coreStats||[]).map((s:any)=>{const draftValue=coreDrafts[s.id] ?? `${typeof s.value==="number"?s.value:Number(s.value||0)}`;return(<div key={s.id} className="flex items-center justify-between gap-2"><span className="text-zinc-300">{s.name}</span><div className="flex items-center gap-2"><Input type="number" value={draftValue} onChange={e=>setCoreDrafts(prev=>({...prev,[s.id]:e.target.value}))} onFocus={()=>setCoreEditing(s.id)} onBlur={()=>{setCoreEditing(null);commitCoreDraft(s.id,draftValue);}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();e.currentTarget.blur();}}} className="h-7 w-20 bg-zinc-950/60" /><span className="text-zinc-400">/ {s.max}</span></div></div>);})}</div></div>
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Conditions</div><div className="mt-2 space-y-2 text-xs">{["pain","arousal","fatigue","stress","trauma","control","allure"].map(k=>(<div key={k} className="flex items-center justify-between gap-2"><span className="capitalize text-zinc-300">{k}</span><Input type="number" value={bundle.conditions?.[k]||0} onChange={e=>setCond(k,Number(e.target.value))} className="h-7 w-20 bg-zinc-950/60" /></div>))}</div></div>
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Semen</div><div className="mt-2 space-y-2 text-xs"><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Volume (ml)</span><Input type="number" value={bundle.semen?.volume_ml||0} onChange={e=>setSem("volume_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div><div className="flex items-center justify-between gap-2"><span className="text-zinc-300">Amount (ml)</span><Input type="number" value={bundle.semen?.amount_ml||0} onChange={e=>setSem("amount_ml",Number(e.target.value))} className="h-7 w-24 bg-zinc-950/60" /></div></div></div>
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Sexual Skills</div><div className="mt-2 space-y-2 text-xs">{(bundle.sexSkills||[]).map((skill:any,i:number)=>{const pct=typeof skill.pct==="number"?skill.pct:Number(skill.pct||0);const rank=rankForPct(pct, bundle.rankModifiers || FALLBACK_RANK_MOD);return(<div key={skill.id||skill.name||i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex items-center justify-between gap-2"><div className="text-zinc-200">{skill.name||`Skill ${i+1}`}</div><div className="text-[11px] text-zinc-300">Rank {rank}</div></div><div className="mt-2 flex items-center gap-2 text-zinc-400"><label className="flex items-center gap-1"><span>Mastery</span><Input type="number" min={0} max={100} className="h-7 w-20 bg-zinc-950/60" value={pct} onChange={e=>setSkillPct(i,Number(e.target.value))}/></label><span className="text-zinc-500">%</span></div></div>);})}{!bundle.sexSkills?.length&&<div className="text-zinc-400">No sexual skills loaded.</div>}</div></div>
-          <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Cartridge & XP</div><div className="mt-2 text-xs text-zinc-300">Reload default GitHub cartridge.</div><Button onClick={()=>load()} className="mt-2 w-full bg-fuchsia-600/80 text-white hover:bg-fuchsia-500/90">Reload Default Cartridge</Button><div className="mt-4 text-sm font-semibold">XP Pool</div><div className="mt-2 flex items-center justify-between text-xs"><span className="text-zinc-300">XP</span><div className="flex items-center gap-2"><Input type="number" value={xp} onChange={e=>setXp(Number(e.target.value||0))} className="h-7 w-24 bg-zinc-950/60" /><Button size="sm" variant="secondary" onClick={()=>setXp(xp+10)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90">+10</Button></div></div></div>
-          <div className="md:col-span-2 rounded-2xl border border-white/10 bg-zinc-950/60 p-3"><div className="text-sm font-semibold">Clothing Editor</div><div className="mt-2 grid grid-cols-1 gap-2 text-xs">{(bundle.clothing||[]).map((c:any,i:number)=>(<div key={i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2"><div className="flex flex-wrap items-center justify-between gap-2"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex flex-wrap items-center gap-2"><label className="flex items-center gap-1"><span className="text-zinc-400">Integrity</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.integrity} onChange={e=>setCl(i,"integrity",Number(e.target.value))}/></label><label className="flex items-center gap-1"><span className="text-zinc-400">Reveal</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.reveal} onChange={e=>setCl(i,"reveal",Number(e.target.value))}/></label>{"wetness" in c? <label className="flex items-center gap-1"><span className="text-zinc-400">Wetness</span><Input type="number" className="h-7 w-20 bg-zinc-950/60" value={c.wetness||0} onChange={e=>setCl(i,"wetness",Number(e.target.value))}/></label> : null}</div></div></div>))}{!bundle.clothing?.length&&<div className="text-zinc-400">No equipped clothing.</div>}</div></div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export default function App(){
-  const [bundle,setBundle]=useState<AnyObj>({coreStats:[],sexSkills:[],innocence:{},clothing:[],conditions:{pain:0,arousal:0,fatigue:0,stress:0,trauma:0,control:0,allure:0},semen:{volume_ml:0,amount_ml:0,penis_size:"normal"},fluids:{vagina:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},penis:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0},anus:{recentStim:0,goo_in:0,goo_out:0,semen_in:0,semen_out:0}},skillNodes:[],bestiary:[],econRules:[],rankModifiers:FALLBACK_RANK_MOD, statMeta:{}, innocenceTrauma:{stash:0,visible:0}});
-  const [settingsOpen,setSettingsOpen]=useState(false);
-  const [xp,setXp]=useState(0);
-  const [acq,setAcq]=useState<Set<string>>(new Set());
-  const [intensity,setIntensity]=useState<number>(2);
-  const [cartUrl,setCartUrl]=useState("");
-  const rankMod:Record<string,number>=bundle.rankModifiers||FALLBACK_RANK_MOD;
-
-  const load=async(url?:string)=>{const res=await fetch(url||DEFAULT_CART_URL);const data=await res.json();setBundle((b:any)=>{
-    const nextConditions= data.conditions ? { ...data.conditions } : { ...(b.conditions || {}) };
-    const traumaBase=typeof nextConditions.trauma==="number" ? nextConditions.trauma : (b.conditions?.trauma ?? 0);
-    const traumaClamped=clamp(traumaBase,0,100);
-    nextConditions.trauma=traumaClamped;
-    return {
-      ...b,
-      coreStats:data.coreStats||[],
-      sexSkills:data.sexSkills||[],
-      innocence:data.innocence||{},
-      clothing:data.equippedClothing||[],
-      conditions:nextConditions,
-      semen:data.semen||b.semen,
-      fluids:data.fluids||b.fluids,
-      skillNodes:data.skillNodes||[],
-      bestiary:data.bestiary||[],
-      econRules:data.econRules||[],
-      rankModifiers:data.rankModifiers||FALLBACK_RANK_MOD,
-      statMeta:data.statMeta||b.statMeta,
-      innocenceTrauma:{ stash:0, visible:traumaClamped },
+    const eng = {
+      fluids: b.fluids || cart.fluids,
+      wet: { ...(b.wet || {vagina:0, anus:0, penis:0}) },
+      clothing: b.clothing || [],
+      core: {
+        awareness:+((b.coreStats||[]).find(s=>s.id==="awareness")?.value||0),
+        purity:+((b.coreStats||[]).find(s=>s.id==="purity")?.value||0),
+        physique:+((b.coreStats||[]).find(s=>s.id==="physique")?.value||0),
+        will,
+        beauty:+((b.coreStats||[]).find(s=>s.id==="beauty")?.value||0),
+        promiscuity:+((b.coreStats||[]).find(s=>s.id==="promiscuity")?.value||0),
+        exhibitionism:+((b.coreStats||[]).find(s=>s.id==="exhibitionism")?.value||0),
+        deviancy:+((b.coreStats||[]).find(s=>s.id==="deviancy")?.value||0),
+      },
+      cond: { ...b.conditions, arousal: r.arousal },
+      minutesPerTurn: b.minutesPerTurn ?? 10,
+      tuning: t
     };
-  }); setAcq(new Set()); setXp(0);};
-  useEffect(()=>{load()},[]);
 
-  // Stat footer from meta or generic ladder
-  function stageOf(s:any){
-  const m = s?.meta || (bundle as any)?.statMeta?.[s?.id];
-  if(m?.thresholds && m?.stages){
-    const th = m.thresholds as number[];
-    const steps = m.stages.length;
-    let idx = th.filter(t => (s.value ?? 0) >= t).length - 1;
-    idx = clamp(idx, 0, steps - 1);
-    return { stage: m.stages[idx], summary: m.summary || s.desc || "", index: idx, steps };
-  }
-  const steps = (m?.stages?.length) || 7;
-  const idx = clamp(Math.round(((s.value||0)/(s.max||1)) * (steps-1)), 0, steps-1);
-  const generic = ["Very low","Low","Below avg","Average","Above avg","High","Very high"]; 
-  const stage = m?.stages ? m.stages[idx] : generic[idx];
-  return { stage, summary: m?.summary || s.desc || "Core attribute.", index: idx, steps };
-}
+    let next = L5.tickBodyWetness(eng, prev, false);
+    if (!hasP) next.wet.penis = 0; // no-penis clamp
+    
+    setB(bb => ({ ...bb, wet: next.wet, conditions: { ...(bb.conditions||{}), arousal: r.arousal } }));
+    if (r.stunnedTurns) push(`Orgasm → stunned ${r.stunnedTurns} turn${r.stunnedTurns===1?"":"s"}`);
+    lastACommitRef.current = r.arousal;
+    arousalDraftRef.current = null;
+  };
+  
+  // generic handlers used by the mapped sliders
+  const handleCondChange = C((k:string, n:number) => {
+    if (k !== "arousal") { setCond(k, n); return; }
+    // while dragging arousal: update the visible number only
+    arousalDraftRef.current = n;
+    setB(p => ({ ...p, conditions:{ ...p.conditions, arousal:n }}));
+  }, [setCond, b]);
 
-  // Spend logic
-  const spend=(node:any)=>{ if(acq.has(node.id)) return alert("Already unlocked."); if(xp<node.xpCost) return alert("Not enough XP."); const reqs=node.requires||[]; const miss=reqs.filter((r:string)=>!acq.has(r)); if(miss.length) return alert("Missing: "+miss.join(", ")); const next=new Set(acq); next.add(node.id); setAcq(next); setXp(xp-node.xpCost); };
-
-  // Header
-  const Header=()=> (
-    <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-3"><div className="rounded-2xl bg-gradient-to-r from-fuchsia-500/30 via-purple-500/30 to-sky-500/30 px-3 py-1 text-sm font-semibold text-zinc-50">Lilith-5 Dungeon</div><div className="text-xs text-zinc-300/80">UI v0.6 • GitHub cartridge</div></div>
-      <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
-        <div className="flex items-center gap-2">
-          <Input placeholder="Paste raw JSON URL" value={cartUrl} onChange={e=>setCartUrl(e.target.value)} className="h-8 w-[260px] bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-400" />
-          <Button size="sm" onClick={()=>load(cartUrl)} className="bg-fuchsia-600/80 text-white hover:bg-fuchsia-500/90">Load</Button>
-          <Button size="sm" variant="secondary" onClick={()=>navigator.clipboard.writeText(cartUrl||DEFAULT_CART_URL)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90">Copy URL</Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden md:block w-48 text-xs text-zinc-300/80">
-            <div className="flex items-center gap-2"><span className="text-zinc-200">Intensity</span>
-              <select
-                className="h-8 w-16 rounded-xl border border-white/10 bg-zinc-950/60 text-zinc-100"
-                value={intensity}
-                onChange={e=>setIntensity(Number(e.target.value))}
+  const handleCondCommit = C((k:string) => {
+    if (k !== "arousal") return;
+    const v = arousalDraftRef.current ?? (b.conditions?.arousal ?? 0);
+    commitArousal(v);
+  }, [b.conditions?.arousal, commitArousal]);
+  E(()=>{if(prevInRef.current&&!innocActive){if(stored>0){setB((b:any)=>({...b,conditions:{...b.conditions,trauma:clamp((b.conditions?.trauma||0)+stored,0,100)}}));push(`Innocence ended — applied ${stored} stored trauma.`);setStored(0)}else push("Innocence ended.")}prevInRef.current=innocActive},[innocActive,stored,push]);
+  const sex=(()=>{const i=["Flat (Flat/AAA)","Budding (AA)","Tiny (A)","Small (B)","Modest (C)","Full (D)","Large (DD)","Huge (E+)"].indexOf(tits),big=i>=2,flat=i<=1;return hasP&&!hasV?(big?"Dick-Girl":"Male"):!hasP&&hasV?(flat?"Cunt-Boy":"Female"):hasP&&hasV?(big?"Futa":"Herm"):"Androgynous"})();
+  const bIdx=M(()=>stageOf({id:"beauty",value:beauty,max:100},b.statMeta||{}).index??0,[beauty,b.statMeta]);
+  E(()=>setB((b:any)=>{const p=(b.clothing||[]).map((c:any)=>("visible"in c)?c:{...c,visible:c.slot!=="underwear"});return{...b,clothing:p}}),[]);
+  const allure=M(()=>allureCalc((b.clothing||[]),bIdx,visF),[b.clothing,bIdx,visF]);
+  E(()=>setB((x:any)=>({...x,conditions:{...x.conditions,allure}})),[allure]);
+  const setPct=C((i:number,val:number)=>setB((b:any)=>{const ss=[...(b.sexSkills||[])];if(!ss[i])return b;const pct=clamp((val|0),0,100),r=rank(pct);ss[i]={...ss[i],pct,rank:r};return({...b,sexSkills:ss})}),[]);
+  const roll=C(()=>{const s=b.sexSkills?.[ri];if(!s){push("No skill selected.");return}const r=rank(s.pct),dm=DCM[r]??0,d=1+Math.floor(Math.random()*20),ef=d+dm,ok=ef>=dc;setLast({text:ok?"SUCCESS":"FAIL",color:ok?"text-emerald-400":"text-rose-400"});push(`Check: ${s.name} | d20:${d} (${r} ${dm>=0?"+":""}${dm} → ${ef}) vs DC ${dc} → ${ok?"SUCCESS":"FAIL"}`)},[b.sexSkills,ri,dc,push]);
+  const addIt=C(()=>setStash((s:any)=>[...s,{id:(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`),kind:"misc",name:"New item",qty:1}]),[]), updIt=C((id:string,p:any)=>setStash((s:any[])=>s.map((i:any)=>i.id===id?{...i,...p}:i)),[]), delIt=C((id:string)=>setStash((s:any[])=>s.filter((i:any)=>i.id!==id)),[]);
+  const ex=()=>{const out={version:b.version||CAR.version,coreStats:b.coreStats,innocence:b.innocence,conditions:b.conditions,equippedClothing:b.clothing,sexSkills:b.sexSkills,skillNodes:b.skillNodes,econRules:b.econRules,statMeta:b.statMeta,text:b.text,body:{hasPenis:hasP,penisInches:pIn,penisWetness:b.wet.penis,hasVagina:hasV,vaginaDepthIn:vDep,vaginaWidthIn:vWid,vaginaWetness:b.wet.vagina,titsSize:tits,assSize:ass,sex,gender,visibleFluids:visF},run:{location:loc,intensity:int},stash};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));a.download='ui.v0.6.json';a.click();URL.revokeObjectURL(a.href)};
+  const im=(e:any)=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(String(r.result));setB((b:any)=>({...b,version:j.version||b.version,coreStats:j.coreStats||b.coreStats,innocence:j.innocence||b.innocence,conditions:j.conditions||b.conditions,clothing:(j.equippedClothing||j.clothing||b.clothing)?.map((c:any)=>({visible:c.slot!=="underwear",...c})),sexSkills:j.sexSkills||b.sexSkills,skillNodes:j.skillNodes||b.skillNodes,econRules:j.econRules||b.econRules,statMeta:j.statMeta||b.statMeta,text:j.text||b.text}));if(j.body){setB((p:any)=>({...p,wet:{...p.wet,vagina:+(j.body.vaginaWetness||p.wet?.vagina||0),penis:+(j.body.penisWetness||p.wet?.penis||0)}}))}if(j.run){setLoc(j.run.location||loc);setInt(+j.run.intensity||int)}if(j.stash)setStash(j.stash);push('Imported ui.v0.6.json')}catch{push('Import failed: invalid JSON')}};r.readAsText(f)};
+  const innS=M(()=>innStage(inn),[inn]);
+  const d20 = () => 1 + Math.floor(Math.random() * 20);
+  const labelFromLength = (len: number) =>
+    len < 1  ? "Micro" :
+    len < 3  ? "Tiny"  :
+    len < 5  ? "Small" :
+    len < 7  ? "Normal":
+    len < 10 ? "Large" : "Huge";
+  const diaFromLabel = (lab: string) =>
+    lab === "Micro" ? 0.8 :
+    lab === "Tiny"  ? 1.0 :
+    lab === "Small" ? 1.2 :
+    lab === "Normal"? 1.4 :
+    lab === "Large" ? 1.6 : 1.8;
+  const auto=C(()=>{const inEncounter=!!(b as any)?.encounter?.active;const prevA=+(b.conditions.arousal||0);const t=(b as any).tuning||cart.tuning;const eng={fluids:cart.fluids,wet:{...b.wet},clothing:b.clothing||[],core:{awareness:+(core("awareness")?.value||0),purity:+(core("purity")?.value||0),physique:+(core("physique")?.value||0),will:+(core("will")?.value||0),beauty:+(core("beauty")?.value||0),promiscuity:+(core("promiscuity")?.value||0),exhibitionism:+(core("exhibitionism")?.value||0),deviancy:+(core("deviancy")?.value||0)},cond:{...b.conditions},minutesPerTurn:turn,tuning:t};let s=L5.tickBodyWetness(eng,prevA,inEncounter);if (!hasP) s.wet.penis = 0;s=L5.transferLewdToClothes(s);      // simple passive decays on the engine result
+  s.cond.pain = L5.clamp(s.cond.pain - (1 + Math.floor(s.core.will / 50)), 0, 200);
+  if (s.cond.control >= 60) s.cond.stress = L5.clamp(s.cond.stress - 1, 0, 200);s=L5.dryClothes(s);setB((prev:any)=>({...prev,wet:s.wet,conditions:s.cond,clothing:s.clothing}))},[b,turn,core]);
+  const Tabs=("Character|Attributes|Inventory|Skill Tree|Misc").split('|');
+  const[tab,setTab]=S("Character");
+  const Btn=({t}:{t:string})=>(<button onClick={()=>setTab(t)} className={`px-3 py-1.5 ${CN.r} ${CN.b} ${tab===t?"bg-zinc-800 border-white/20 text-zinc-100":"bg-zinc-900/60 border-white/10 text-zinc-300"}`}>{t}</button>);
+  return(<div className={`${CN.p} text-zinc-100`}>
+    <div className="mb-3 flex flex-wrap items-center gap-2"><div className="text-sm">UI synced to cartridge</div><div className="flex items-center gap-2 text-sm"><span>Skill</span><select className="h-7 rounded bg-zinc-950/60 border border-white/10 text-zinc-100" value={ri} onChange={e=>setRI(+e.target.value)}>{(b.sexSkills||[]).map((s:any,i:number)=>(<option key={i} value={i}>{s.name}</option>))}</select><span>DC</span><input type="number" className="h-7 w-16 rounded border border-white/10 bg-zinc-950/60 px-2" value={dc} onChange={e=>setDC(clamp(+e.target.value||0,1,40))}/><button className="h-7 rounded border border-white/10 bg-zinc-900/80 px-2" onClick={roll}>Roll d20</button>{last&&<span className={`ml-2 text-xs ${last.color}`}>{last.text}</span>}</div><div className="ml-auto flex items-center gap-2 text-sm"><span>Location</span><input className="h-7 w-40 rounded border border-white/10 bg-zinc-950/60 px-2" value={loc} onChange={e=>setLoc(e.target.value)}/><span>Intensity</span><input type="number" className="h-7 w-16 rounded border border-white/10 bg-zinc-950/60 px-2" value={int} onChange={e=>setInt(clamp(+e.target.value||0,0,5))}/></div></div>
+    <div className="mb-3 flex flex-wrap gap-2">{Tabs.map(t=><Btn key={t} t={t}/> )}</div>
+    {tab==="Character"&&(<div className="grid grid-cols-2 gap-4">
+      <div className="col-span-1"><div className={`${BOX} ${CN.p}`}><div className="flex items-center justify-between"><div className="text-lg font-semibold">Conditions</div><div className={`text-xs ${CN.s} flex items-center gap-2`}><span>Sex: <span className={`${CN.t} font-semibold`}>{sex}</span></span><span>Gender:</span><select className="h-7 rounded bg-zinc-950/60 border border-white/10 text-zinc-100" value={gender} onChange={e=>setG(e.target.value)}>{["Male","Female","Trans Male","Trans Female","Non-Binary"].map(g=>(<option key={g} value={g}>{g}</option>))}</select>{!innocActive?<button className="ml-2 h-7 rounded border border-white/10 bg-zinc-900/80 px-2" onClick={()=>{setInn(-20);setB((b:any)=>({...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id==="awareness"?{...s,value:0}:s)}));push('Innocence started at 20/20')}}>Start Innocence</button>:<button className="ml-2 h-7 rounded border border-white/10 bg-zinc-900/80 px-2" onClick={()=>{setInn(0);push('Innocence ended manually')}}>End Innocence</button>}</div></div>
+        <div className="mt-2 grid grid-cols-1 gap-2">
+          {["pain","arousal","fatigue","stress","control"].map(k => {
+            const v = +(b.conditions?.[k] || 0);
+            return (
+              <div
+                key={k}
+                className={`${CN.r} ${CN.b} ${CN.z} p-2`}
+                onPointerUp={() => handleCondCommit(k)}
+                onTouchEnd={() => handleCondCommit(k)}
+                
               >
-                {[1,2,3,4,5].map(i=>(<option key={i} value={i}>{i}</option>))}
-              </select>
-            </div>
-            <div className="mt-1 text-[10px] text-zinc-400">{INTENSITY[intensity as 1|2|3|4|5]}</div>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-zinc-900/80 px-2 py-1 text-xs text-zinc-200">XP: {xp}</div>
-          <Button size="sm" variant="secondary" onClick={()=>setXp(xp+10)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90">+10 XP</Button>
-          <Progress value={62} className="h-2 bg-zinc-800" />
-          <Button size="sm" variant="secondary" onClick={()=>setSettingsOpen(true)} className="border border-white/10 bg-zinc-900/80 text-zinc-100 hover:bg-zinc-800/90"><Settings className="mr-1 h-4 w-4"/>Settings</Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const CoreCard=({s}:{s:any})=>{
-    const rawValue=typeof s.value==="number"?s.value:Number(s.value??0);
-    const innocenceMeta=(bundle as any)?.statMeta?.innocence;
-    const innocenceThresholds=innocenceMeta?.thresholds as number[]|undefined;
-    const innocenceFloor=Math.min(0,innocenceThresholds?.[0]??-20);
-    const innocenceToggle=(bundle.innocence?.active??true)&&rawValue<0;
-    const asInnocence=s.id==="awareness"&&innocenceToggle;
-    const displayMaxBase=asInnocence?Math.abs(innocenceFloor):s.max;
-    const displayValueBase=asInnocence?Math.abs(Math.max(rawValue,innocenceFloor)):rawValue;
-    const safeDisplayMax=Number.isFinite(displayMaxBase)&&displayMaxBase!==0?displayMaxBase:1;
-    const safeDisplayValue=Number.isFinite(displayValueBase)?Math.min(displayValueBase,safeDisplayMax):0;
-    const cardName=asInnocence?"Innocence":s.name;
-    const cardDesc=asInnocence?(innocenceMeta?.summary||s.desc):s.desc;
-    const stageTarget=asInnocence?{...s,id:"innocence",value:rawValue,desc:cardDesc}:s;
-    const stageInfo=stageOf(stageTarget);
-    const metaSource=stageTarget.meta||(bundle as any)?.statMeta?.[stageTarget?.id];
-    const hasStages=Array.isArray(metaSource?.stages);
-    return(
-      <div className={`${PANEL} p-3`}>
-        <div className="flex items-center justify-between"><div className={`text-sm font-semibold ${HEAD}`}>{cardName}</div><div className="text-xs text-zinc-300/90">{safeDisplayValue}/{safeDisplayMax}</div></div>
-        <div className={`mt-1 text-xs ${SUB}`}>{cardDesc}</div>
-        <Gauge v={safeDisplayValue} max={safeDisplayMax}/>
-        <div className="mt-2 rounded-xl border border-white/10 bg-zinc-950/60 p-2"><div className="text-[11px] text-zinc-200">Stage: {stageInfo.stage}{hasStages?` • ${stageInfo.index}/${stageInfo.steps-1}`:""}</div><div className="mt-1 text-[11px] text-zinc-400">{stageInfo.summary}</div></div>
-      </div>
-    );
-  };
-
-  const SexSkills=()=> (
-    <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Sexual Skills</CardTitle></CardHeader><CardContent className="grid grid-cols-2 gap-2">
-      {bundle.sexSkills?.map((k:any,i:number)=>{
-        const r=k.rank as keyof typeof rankMod; const mod=rankMod[r]??0;
-        return (
-          <div key={i} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-2 text-xs">
-            <div className={`text-sm font-semibold ${HEAD}`}>{k.name}</div>
-            <div className="mt-1 text-zinc-300/90">Rank {k.rank} • {k.pct}%</div>
-            <Gauge v={k.pct||0} max={100}/>
-            <div className="mt-2 rounded bg-white/10 px-2 py-1 text-[11px] text-zinc-100">Checks: {mod>=0?"+":""}{mod} to related actions</div>
-          </div>
-        );
-      })}
-      {!bundle.sexSkills?.length&&<div className={`text-xs ${SUB}`}>Skills load from the cartridge.</div>}
-    </CardContent></Card>
-  );
-
-  const Conditions=()=>{const c=bundle.conditions||{}; const will=(bundle.coreStats||[]).find((s:any)=>s.id==="will")||{value:0,max:1}; const hint=INTENSITY[intensity as 1|2|3|4|5]; const Row=({k}:{k:string})=>{const v=c[k]??0;return(<div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-2"><div className="flex items-center justify-between text-xs"><span className="text-zinc-200 capitalize">{k}</span><span className="text-[10px] text-zinc-300">{v}</span></div><div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-zinc-800"><div style={{width:`${v}%`}} className="h-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500"/></div></div>)}; return (
-    <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Current Conditions</CardTitle></CardHeader><CardContent className="grid grid-cols-1 gap-2">
-      {["pain","arousal","fatigue","stress","trauma","control","allure"].map(k=><Row key={k} k={k}/>) }
-      <div className="text-[11px] text-zinc-400">High Willpower {will.value}/{will.max} resists stun. Intensity: {hint}</div>
-    </CardContent></Card>
-  )};
-
-  const Clothing=()=> (
-    <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Clothing</CardTitle></CardHeader><CardContent className="space-y-2 text-xs">
-      {bundle.clothing?.map((c:any,i:number)=>{
-        return (
-          <div key={i} className="rounded-xl border border-white/10 bg-zinc-950/50 p-2">
-            <div className="flex items-center justify-between"><div className="text-zinc-200">{(c.category||c.slot)?.toUpperCase()} • {c.name}</div><div className="flex items-center gap-2 text-[11px] text-zinc-300"><span>{c.wetness!==undefined?`${c.wetness}/200`:"–"}</span><span>{c.integrity}/100</span><span>{c.reveal}/100</span></div></div>
-            {c.wetness!==undefined&&<div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-zinc-800"><div style={{width:`${(c.wetness/200)*100}%`}} className="h-full bg-gradient-to-r from-sky-500 to-fuchsia-500"/></div>}
-          </div>
-        );
-      })}
-      {!bundle.clothing?.length&&<div className={`text-xs ${SUB}`}>No equipped clothing in cartridge.</div>}
-    </CardContent></Card>
-  );
-
-  const Fluids=()=>{const s=bundle.semen||{volume_ml:0,amount_ml:0}; const ej=Math.min(s.amount_ml,Math.round((30+(s.volume_ml||0)/30))); return (
-    <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Fluids</CardTitle></CardHeader><CardContent className="grid grid-cols-2 gap-2 text-[11px] text-zinc-100">
-      <div className="rounded-xl border border-white/10 bg-zinc-950/60 p-2"><div className="text-xs text-zinc-200">Semen</div><div className="mt-1 grid grid-cols-3 gap-2"><div className="rounded bg-zinc-900/60 p-1 text-center">Vol {s.volume_ml} ml</div><div className="rounded bg-zinc-900/60 p-1 text-center">Amt {s.amount_ml} ml</div><div className="rounded bg-zinc-900/60 p-1 text-center">Ejac ~{ej} ml</div></div></div>
-      <div className="rounded-xl border border-white/10 bg-zinc-950/60 p-2"><div className="text-xs text-zinc-200">Wetness</div><div className="mt-1 grid grid-cols-3 gap-2"><div className="rounded bg-zinc-900/60 p-1 text-center">Vag {(bundle.fluids?.vagina?.recentStim||0)+ (bundle.fluids?.vagina?.semen_in||0)*6}</div><div className="rounded bg-zinc-900/60 p-1 text-center">Pen {(bundle.fluids?.penis?.recentStim||0)+(bundle.fluids?.penis?.semen_in||0)*12}</div><div className="rounded bg-zinc-900/60 p-1 text-center">Anal {(bundle.fluids?.anus?.semen_in||0)*6}</div></div></div>
-    </CardContent></Card>
-  )};
-
-  const SkillTree=()=>{
-    const [sel,setSel]=useState<string|undefined>();
-    const nodes=(bundle.skillNodes||[]) as any[];
-    const orderBranch:Record<string,number>={Positions:0,Technique:1,Kink:2,Utility:3};
-    const byTier:Record<number,any[]>={};
-    nodes.forEach(n=>{byTier[n.tier]=byTier[n.tier]||[];byTier[n.tier].push(n)});
-    const tiers=Array.from(new Set(nodes.map(n=>n.tier))).sort((a,b)=>a-b);
-    tiers.forEach(t=> byTier[t].sort((a,b)=> (orderBranch[a.branch]??9)-(orderBranch[b.branch]??9) || a.name.localeCompare(b.name)));
-    const selected = useMemo(()=> nodes.find(n=>n.id===sel)||nodes[0], [sel,nodes]);
-    const requireLine=(n:any)=> (n.requires?.length? `Requires: ${n.requires.map((r:string)=> acq.has(r)?`✔ ${r}`:`✖ ${r}`).join(', ')}`:"No prerequisites");
-    return (
-      <div className="grid grid-cols-12 gap-4">
-        <Card className={`col-span-9 ${PANEL}`}>
-          <CardHeader><CardTitle className={HEAD}>Skill Tree</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-6 gap-3">
-              {tiers.map(t=> (
-                <div key={t} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-2">
-                  <div className={`mb-2 text-xs font-semibold ${HEAD}`}>Tier {t}</div>
-                  <div className="space-y-2">
-                    {byTier[t].map(n=> (
-                      <button key={n.id} onClick={()=>setSel(n.id)} className={`w-full rounded-xl border border-white/10 bg-gradient-to-br ${n.stance==="Dom"?"from-fuchsia-500/30 to-fuchsia-700/10":n.stance==="Sub"?"from-sky-500/30 to-sky-700/10":"from-purple-500/20 to-purple-800/10"} p-2 text-left hover:border-white/20 ${sel===n.id?"ring-2 ring-fuchsia-400/70":""}`}>
-                        <div className="flex items-center justify-between">
-                          <div className={`text-xs font-semibold ${HEAD}`}>{n.name}</div>
-                          <div className="flex items-center gap-1 text-[10px] text-zinc-200/80"><Pill>{n.branch}</Pill><Pill>{n.stance}</Pill><Pill>{n.xpCost} XP</Pill>{acq.has(n.id)&&<Pill>Unlocked</Pill>}</div>
-                        </div>
-                        <div className={`mt-1 text-[11px] ${SUB}`}>{requireLine(n)}</div>
-                      </button>
-                    ))}
-                    {!byTier[t]?.length && <div className={`text-[11px] ${SUB}`}>—</div>}
-                  </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="capitalize text-zinc-200">{k}</span>
+                  <span className={`text-[10px] ${CN.s}`}>{v}</span>
                 </div>
-              ))}
-              {!tiers.length && <div className={`text-xs ${SUB}`}>No nodes; load cartridge.</div>}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="col-span-3 flex flex-col gap-4">
-          <Card className={PANEL}>
-            <CardHeader><CardTitle className={HEAD}>Node Details</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              {selected? (<>
-                <div className={`text-sm font-semibold ${HEAD}`}>{selected.name}</div>
-                <div className={`text-xs ${SUB}`}>{selected.desc}</div>
-                <div className="flex flex-wrap gap-2 text-[10px] text-zinc-100"><Badge variant="secondary">Tier {selected.tier}</Badge><Badge variant="secondary">{selected.branch}</Badge><Badge variant="secondary">{selected.stance}</Badge><Badge variant="secondary">Cost {selected.xpCost} XP</Badge></div>
-                <div className="pt-2"><div className="text-xs uppercase tracking-wide text-zinc-300/80">Prerequisites</div><ul className="ml-4 list-disc text-xs text-zinc-200">{(selected.requires?.length?selected.requires:["None"]).map((r:string,i:number)=>(<li key={i} className={`${acq.has(r)?"text-emerald-300":"text-zinc-400"}`}>{r}</li>))}</ul></div>
-                <Button className="w-full bg-fuchsia-600/80 text-white hover:bg-fuchsia-500/90 disabled:opacity-50" onClick={()=>spend(selected)} disabled={acq.has(selected.id)}>Spend XP</Button>
-              </>): <div className={`text-xs ${SUB}`}>Select a node.</div>}
-            </CardContent>
-          </Card>
-
-          <Card className={PANEL}>
-            <CardHeader><CardTitle className={HEAD}>Unlocked Commands</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-xs">
-              {[...acq].map(id=>{const n=(bundle.skillNodes||[]).find((x:any)=>x.id===id); if(!n) return null; return (
-                <div key={id} className="rounded-xl border border-white/10 bg-zinc-950/60 p-2"><div className="flex items-center justify-between"><div className="text-zinc-200">{n.name}</div><div className="flex items-center gap-1 text-[10px]"><Pill>{n.branch}</Pill><Pill>{n.stance}</Pill></div></div><div className="mt-1 text-zinc-400">{n.desc}</div></div>
-              )})}
-              {!acq.size&&<div className="text-zinc-400">Spend XP to unlock commands.</div>}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  };
-
-  const Econ=()=> (
-    <Card className={PANEL}><CardHeader><CardTitle className={HEAD}>Progression & Balance</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2">{(bundle.econRules||[]).map((r:any)=>(<div key={r.title} className="rounded-2xl border border-white/10 bg-zinc-950/50 p-3"><div className={`text-sm font-semibold ${HEAD}`}>{r.title}</div><div className={`mt-1 text-xs ${SUB}`}>{r.text}</div></div>))}</CardContent></Card>
-  );
-
-  return (
-    <div className="min-h-screen bg-zinc-950 p-4 text-zinc-100">
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 opacity-20">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:24px_24px]" />
-      </div>
-
-      <Header/>
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        bundle={bundle}
-        setBundle={setBundle}
-        xp={xp}
-        setXp={setXp}
-        load={load}
-      />
-
-      <Tabs defaultValue="char" className="mt-2">
-        <TabsList className="bg-zinc-900/60 text-zinc-200">
-          <TabsTrigger value="char">Character</TabsTrigger>
-          <TabsTrigger value="tree">Skill Tree</TabsTrigger>
-          <TabsTrigger value="rules">Rules</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="char" className="mt-4">
-          <div className="grid grid-cols-12 gap-4">
-            <Card className={`col-span-12 md:col-span-7 ${PANEL}`}>
-              <CardHeader><CardTitle className={HEAD}>Core Stats</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {(bundle.coreStats||[]).map((s:any)=>(<CoreCard key={s.id} s={s}/>))}
-                {!bundle.coreStats?.length&&<div className={`text-xs ${SUB}`}>Stats load from cartridge.</div>}
-              </CardContent>
-            </Card>
-            <div className="col-span-12 md:col-span-5 grid gap-4">
-              <SexSkills/>
-              <Conditions/>
-            </div>
-            <div className="col-span-12 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Clothing/>
-              <Fluids/>
+                <Gauge v={v} max={100}/>
+                <div className={`mt-1 text-[11px] ${CN.x}`}>{condText(b,k,v)}</div>
+                <div className="mt-2">
+                  <Slider
+                    label="Adjust"
+                    value={v}
+                    onChange={(n)=>handleCondChange(k,n)}
+                    // If your Slider supports it, you can also add:
+                    // onChangeEnd={() => handleCondCommit(k)}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {innocActive&&(<div className={`${CN.r} ${CN.b} ${CN.z} p-2`}><div className="flex items-center justify-between text-xs"><span className="text-zinc-200">Innocence</span><span className={`text-[10px] ${CN.s}`}>{Math.abs(inn)}/20</span></div><Gauge v={Math.abs(inn)} max={20}/><div className={`mt-1 text-[11px] ${CN.x}`}>{innS.stage}</div><div className={`mt-1 text-[11px] ${CN.x}`}>Stored trauma: {stored}</div></div>)}
+          <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}><div className="flex items-center justify-between text-xs"><span className="text-zinc-200">Trauma</span><span className={`text-[10px] ${CN.s}`}>{+(b.conditions?.trauma||0)}</span></div><Gauge v={+(b.conditions?.trauma||0)} max={100}/><div className={`mt-1 text-[11px] ${CN.x}`}>{condText(b,"trauma",+(b.conditions?.trauma||0))}</div><div className="mt-2"><Slider label="Adjust" value={+(b.conditions?.trauma||0)} onChange={n=>setCond("trauma",n)}/></div></div>
+          <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}><div className="flex items-center justify-between text-xs"><span className="text-zinc-200">Allure (calculated)</span><span className={`text-[10px] ${CN.s}`}>{b.conditions?.allure||0}</span></div><Gauge v={+(b.conditions?.allure||0)} max={100}/><div className={`mt-1 text-[11px] ${CN.x}`}>{tx('ui.allureDesc','') || aDesc(+(b.conditions?.allure||0))}</div><div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-zinc-300"><label className="flex items-center gap-2"><input type="checkbox" checked={visF.piss} onChange={e=>setVF((f:any)=>({...f,piss:e.target.checked}))}/>Piss visible</label><label className="flex items-center gap-2"><input type="checkbox" checked={visF.goo} onChange={e=>setVF((f:any)=>({...f,goo:e.target.checked}))}/>Goo visible</label><label className="flex items-center gap-2"><input type="checkbox" checked={visF.cum} onChange={e=>setVF((f:any)=>({...f,cum:e.target.checked}))}/>Cum visible</label><label className="flex items-center gap-2"><input type="checkbox" checked={visF.femcum} onChange={e=>setVF((f:any)=>({...f,femcum:e.target.checked}))}/>Femcum visible</label></div></div></div>
+        </div></div>
+      <div className="col-span-1"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Clothing</div><div className="mt-2 grid grid-cols-1 gap-2">{(b.clothing||[]).map((c:any,i:number)=>{const k=cat(c.slot),t=wetlab(+c.wetness||0),tr=(c.wetness||0)>=100;return(<div key={i} className={`${CN.r} ${CN.b} bg-zinc-950/50 p-2 text-xs`}><div className="flex items-center justify-between"><div className="text-zinc-200">{k.toUpperCase()} • {c.name}</div><div className={`flex items-center gap-2 ${CN.s}`}><span>{integ(c.integrity)}</span>{typeof c.reveal==='number'&&<span>Reveal {c.reveal}/100</span>}{"wetness"in c?<span>Wet {c.wetness}/200</span>:null}</div></div>{("wetness"in c)&&(<><Gauge v={c.wetness||0} max={200}/><div className={`mt-1 text-[11px] ${CN.x}`}>{t}{tr?" — acts as if not worn (transparent)":""}</div></>)}</div>)})}{!b.clothing?.length&&<div className={`text-xs ${CN.s}`}>None.</div>}</div><div className={`mt-3 ${CN.r} ${CN.b} ${CN.z} p-2 text-[11px] ${CN.s}`}><div className="flex items-center justify-between"><div className={`font-semibold ${CN.t}`}>Lewd wetness</div><div className="flex items-center gap-2"><span>Turn</span><input type="number" min={1} max={60} step={1} className="h-7 w-16 rounded border border-white/10 bg-zinc-900/70 px-2" value={turn} onChange={e=>setTurn(clamp(+e.target.value||0,1,60))}/><span>min</span><button className="h-7 rounded border border-white/10 bg-zinc-900/80 px-2" onClick={auto}>Apply 1 turn</button></div></div><div>{tx('ui.lewdWetness','')}</div></div>
+        <div className={`mt-3 ${CN.r} ${CN.b} ${CN.z} p-2`}>
+          <div className={`text-lg font-semibold ${CN.t}`}>Fluids & Body</div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <label className="col-span-2 flex items-center gap-2"><input type="checkbox" checked={hasP} onChange={e=>setHP(e.target.checked)}/>Penis</label>
+            {hasP&&(<div className="flex items-center gap-2"><span>Size</span><input type="number" min={0.6} max={12} step={0.1} className="h-7 w-20 rounded border border-white/10 bg-zinc-900/70 px-2" value={pIn} onChange={e=>setPIn(clamp(+e.target.value||0,0.6,12))}/><span className="opacity-70">{pLab(pIn)}</span></div>)}
+            <label className="col-span-2 flex items-center gap-2"><input type="checkbox" checked={hasV} onChange={e=>setHV(e.target.checked)}/>Vagina</label>
+            {hasV&&(<div className="grid grid-cols-2 gap-2"><div className="flex items-center gap-2"><span>Depth</span><input type="number" min={1} max={12} step={0.1} className="h-7 w-20 rounded border border-white/10 bg-zinc-900/70 px-2" value={vDep} onChange={e=>setVD(clamp(+e.target.value||0,1,12))}/></div><div className="flex items-center gap-2"><span>Width</span><input type="number" min={0.8} max={3} step={0.1} className="h-7 w-20 rounded border border-white/10 bg-zinc-900/70 px-2" value={vWid} onChange={e=>setVW(clamp(+e.target.value||0,0.8,3))}/></div></div>)}
+            <div className="col-span-2 items-center flex gap-2"><span>Tits:</span><select className="h-7 rounded bg-zinc-950/60 border border-white/10 text-zinc-100" value={tits} onChange={e=>setTits(e.target.value)}>{["Flat (Flat/AAA)","Budding (AA)","Tiny (A)","Small (B)","Modest (C)","Full (D)","Large (DD)","Huge (E+)"].map(i=>(<option key={i} value={i}>{i}</option>))}</select></div>
+            <div className="col-span-2 items-center flex gap-2"><span>Ass:</span><select className="h-7 rounded bg-zinc-950/60 border border-white/10 text-zinc-100" value={ass} onChange={e=>setAss(e.target.value)}>{["Slender","Modest","Round","Plump","Large","Huge"].map(i=>(<option key={i} value={i}>{i}</option>))}</select></div>
+            <div className="col-span-3 grid grid-cols-3 gap-2">
+              <Slider label="Vagina wetness" value={b.wet.vagina} max={120}
+                onChange={n=>setB((x: { wet: any; })=>({...x, wet:{...x.wet, vagina:n}}))} />
+              <Slider label="Anal wetness" value={b.wet.anus} max={120}
+                onChange={n=>setB((x: { wet: any; })=>({...x, wet:{...x.wet, anus:n}}))} />
+              <Slider label="Penis lube" value={b.wet.penis} max={120}
+                onChange={n=>setB((x: { wet: any; })=>({...x, wet:{...x.wet, penis:n}}))} />
             </div>
           </div>
-        </TabsContent>
+        </div>
+      </div></div></div>)}
+    {tab==="Attributes"&&(<div className="grid grid-cols-12 gap-4"><div className="col-span-12 lg:col-span-7"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Core Stats</div><div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">{(b.coreStats||[]).map((s:any)=>s.id==="awareness"?(<Card key={s.id} s={{...s,value:innocActive?0:s.value}} meta={b.statMeta||{}} awMode={innocActive} onGainAw={gainAw} onChange={setCore} desc={tx(`coreDesc.${s.id}`)}/>):(<Card key={s.id} s={s} meta={b.statMeta||{}} onChange={setCore} desc={tx(`coreDesc.${s.id}`)}/>))}</div></div></div><div className="col-span-12 lg:col-span-5"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Sexual Skills</div><div className="mt-2 grid gap-2">{(b.sexSkills||[]).map((s:any,i:number)=>(<div key={i} className={`${CN.r} ${CN.b} ${CN.z} p-2 text-xs`}><div className="flex items-center justify-between gap-2"><input className="h-7 flex-1 rounded bg-zinc-900/70 border border-white/10 px-2" value={s.name} onChange={e=>setB((b:any)=>{const ss=[...(b.sexSkills||[])];ss[i]={...ss[i],name:e.target.value};return{...b,sexSkills:ss}})}/><span className="rounded px-2 py-1 bg-zinc-900/70 border border-white/10 text-zinc-200">{rank(s.pct)} rank</span></div><div className="mt-2"><Slider label={`Proficiency ${s.pct}`} value={s.pct} onChange={v=>setPct(i,v)}/></div></div>))}</div><button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={()=>setB((b:any)=>({...b,sexSkills:[...(b.sexSkills||[]),{name:"New Skill",pct:0,rank:"F"}]}))}>Add skill</button>
+</div></div></div>)}
+    {tab==="Inventory"&&(<div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Stash</div><div className="mt-2 grid gap-2">{stash.map((i:any)=>(<div key={i.id} className={`${CN.r} ${CN.b} ${CN.z} p-2 text-xs flex items-center gap-2`}><input className="h-7 flex-1 rounded bg-zinc-900/70 border border-white/10 px-2" value={i.name} onChange={e=>updIt(i.id,{name:e.target.value})}/><input type="number" className="h-7 w-20 rounded bg-zinc-900/70 border border-white/10 px-2" value={i.qty} onChange={e=>updIt(i.id,{qty:+(e.target.value||0)})}/><select className="h-7 rounded bg-zinc-900/70 border border-white/10 px-2" value={i.kind} onChange={e=>updIt(i.id,{kind:e.target.value})}><option>misc</option><option>clothes</option><option>toy</option></select><button className="h-7 rounded border border-white/10 bg-rose-900/60 px-2" onClick={()=>delIt(i.id)}>Delete</button></div>))}{!stash.length&&<div className={`text-xs ${CN.s}`}>Empty.</div>}</div><div className="mt-2"><button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={addIt}>Add item</button></div></div>)}
+    {tab==="Skill Tree"&&(<div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Skill Nodes</div><div className={`mt-2 text-xs ${CN.s}`}>No nodes defined yet. Import via JSON ("skillNodes").</div></div>)}
+    {tab==="Misc"&&(<div className="grid grid-cols-12 gap-4"><div className="col-span-12 lg:col-span-7"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Event Log</div><div className={`${CN.r} ${CN.b} ${CN.z} mt-2 h-64 overflow-auto p-2 text-[11px] ${CN.s}`}>{log.map((l:any,i:number)=>(<div key={i} className="whitespace-pre">{l}</div>))}</div><div className="mt-2 flex gap-2"><button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={()=>setLog([])}>Clear</button>
+<button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={ex}>Export JSON</button><label className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs flex items-center cursor-pointer`}>Import<input type="file" accept="application/json" onChange={im} className="hidden"/></label><Button onClick={() => {
+  const eng0 = toEngine();
+  const s = { ...eng0, cond: { ...eng0.cond, arousal: b.conditions.arousal } };
+  const next = L5.tickBodyWetness(s, 60, false);
+  alert(`Wet after tick: vag=${next.wet.vagina} pen=${next.wet.penis} anus=${next.wet.anus}`);
+}}>
+  Smoke: self-lube tick
+</Button>
+<Button onClick={() => {
+  const len = hasP ? pIn : 0;
+  const lab = labelFromLength(len);
+  const dia = diaFromLabel(lab);
+  const skillPct = (b.sexSkills?.[ri]?.pct) ?? 40;
+  const promiscuity = +((b.coreStats||[]).find((s:any)=>s.id==="promiscuity")?.value || 0);
+  const physique    = +((b.coreStats||[]).find((s:any)=>s.id==="physique")?.value || 0);
 
-        <TabsContent value="tree" className="mt-4"><SkillTree/></TabsContent>
-        <TabsContent value="rules" className="mt-4"><Econ/></TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+  const gate = L5.penetrationGateDC({
+    target: "vagina",
+    penisLengthIn: len,
+    penisDiaIn: dia,
+    vagDepthIn: hasV ? vDep : undefined,
+    vagWidthIn: hasV ? vWid : undefined,
+    wetness: b.wet.vagina,                 // <-- use the separate wet state
+    skillPct,
+    promiscuity,
+    physique,
+    conditions: b.conditions,
+    tuning: (b as any).tuning || cart.tuning
+  });
+
+  const roll  = d20();
+  const total = roll + gate.totalMod;
+  const ok    = total >= gate.dc;
+
+  const painNext = L5.clamp((b.conditions?.pain||0) + (ok ? gate.painOnSuccess : gate.painOnFail), 0, 200);
+  setB((prev:any)=>({...prev, conditions:{...prev.conditions, pain: painNext}}));
+
+  // breakdown so you can see wetness effect
+  push(`Gate: wet=${b.wet.vagina} skill=${skillPct}% rank=${gate.skillRank} wetBonus=${gate.wetBonus} sizeΔ=${gate.sizeDelta} depthPenalty=${gate.depthPenalty} | d20=${roll} + ${gate.totalMod} = ${total} vs DC ${gate.dc} → ${ok?'SUCCESS':'FAIL'} (pain +${ok?gate.painOnSuccess:gate.painOnFail})`);
+}}>
+  Test vaginal penetration gate
+</Button>
+</div></div></div><div className="col-span-12 lg:col-span-5"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Progression & Balance</div><div className={`mt-2 text-xs ${CN.s}`}>Hook here for XP curves, DC targets, and tuning; powered by cartridge.</div></div></div></div>)}
+  </div>)}

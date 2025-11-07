@@ -1,5 +1,5 @@
 {
-  "version": "ui.v0.5",
+  "version": "ui.v0.6",
   "coreStats": [
     {
       "id": "awareness",
@@ -74,29 +74,6 @@
     "volume_ml": 120,
     "amount_ml": 210,
     "penis_size": "normal"
-  },
-  "fluids": {
-    "vagina": {
-      "recentStim": 10,
-      "goo_in": 0,
-      "goo_out": 0,
-      "semen_in": 2,
-      "semen_out": 1
-    },
-    "penis": {
-      "recentStim": 12,
-      "goo_in": 0,
-      "goo_out": 0,
-      "semen_in": 0,
-      "semen_out": 1
-    },
-    "anus": {
-      "recentStim": 0,
-      "goo_in": 0,
-      "goo_out": 0,
-      "semen_in": 0,
-      "semen_out": 0
-    }
   },
   "equippedClothing": [
     {
@@ -457,5 +434,139 @@
         "You lust for the unspeakable."
       ]
     }
+  },
+  "text": {
+    "descriptors": {
+      "wetness": {
+        "vagina": [
+          "Your vagina is dry. Insertions will be difficult.",
+          "Your vagina is a little slick. Insertions will be difficult for all but the smallest penises.",
+          "Your vagina is slick. Most penises will have a hard time penetrating.",
+          "Your vagina is moist. Some penises will be able to penetrate without difficulty.",
+          "Your vagina is wet. Most penises will have an easy time sliding in.",
+          "Your vagina is dripping. All but the largest penises will have an easy time sliding in.",
+          "Your vagina is drenched. Even the largest penises will have an easy time sliding in."
+        ],
+        "anus": [
+          "Your ass is dry. Insertions will be difficult.",
+          "Your ass is a little slick. Insertions will be difficult for all but the smallest penises.",
+          "Your ass is slick. Most penises will have a hard time penetrating.",
+          "Your ass is moist. Some penises will be able to penetrate without difficulty.",
+          "Your ass is wet. Most penises will have an easy time sliding in.",
+          "Your ass is dripping. All but the largest penises will have an easy time sliding in.",
+          "Your ass is well-lubricated. Even the largest penises will have an easy time sliding in."
+        ],
+        "penis": [
+          "Your penis is dry.",
+          "Your penis is a little slick.",
+          "Your penis is slick.",
+          "Your penis is moist.",
+          "Your penis is wet.",
+          "Your penis is dripping.",
+          "Your penis is well-lubricated."
+        ],
+        "thresholds": [
+          0,
+          15,
+          30,
+          45,
+          60,
+          75,
+          90
+        ]
+      },
+      "clothesWetness": {
+        "thresholds": [
+          50,
+          80,
+          100,
+          90
+        ],
+        "labels": [
+          "damp",
+          "wet",
+          "soaked (transparent)",
+          "concealed again"
+        ]
+      },
+      "allureStages": [
+        "You look unremarkable.",
+        "You attract glances.",
+        "You attract attention.",
+        "You stand out.",
+        "You look lewd.",
+        "You look perverted.",
+        "You look like you need to be ravaged."
+      ]
+    }
+  },
+  "fluids": {
+    "vagina": {
+      "recentStim": 10,
+      "goo": 0,
+      "semen": 1
+    },
+    "penis": {
+      "recentStim": 12,
+      "goo": 0,
+      "semen": 1
+    },
+    "anus": {
+      "recentStim": 0,
+      "goo": 0,
+      "semen": 0
+    }
+  },
+  "tuning": {
+    "wet": {
+      "arousalMultVag": 2.0,
+      "arousalMultPen": 2.0,
+      "vagForeignUnit": 6,
+      "anForeignUnit": 6,
+      "penForeignUnit": 12,
+      "maxSelfVag": 74,
+      "maxSelfPen": 75
+    },
+    "lewdBonus": {
+      "max": 5,
+      "step": 20
+    },
+    "dry": {
+      "bodyPerMin": 1,
+      "clothesPerMin": 1
+    },
+    "transfer": {
+      "m": 0.0578,
+      "b": -3.202
+    },
+    "gate": {
+      "baseV": 12,
+      "baseA": 14,
+      "perInchDia": 8,
+      "wetStep": 15
+    },
+    "pain": {
+      "k": 0.0231,
+      "base": 10,
+      "perInch": 10,
+      "depthV": 3
+    },
+    "orgasm": {
+      "resetBase": 40,
+      "resetPerWill": 15,
+      "willStunCutoff": 70
+    },
+    "encounter": {
+      "base": 5,
+      "allureMult": 0.6,
+      "cap": 60
+    }
+  },
+  "body": {
+    "hasPenis": true,
+    "penisInches": 6,
+    "hasVagina": true,
+    "vaginaDepthIn": 6,
+    "vaginaWidthIn": 1.5
   }
 }
