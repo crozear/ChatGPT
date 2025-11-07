@@ -1,4 +1,4 @@
-UI json: cartridges/ui.v0.6.json
+UI json: src/lib/ui.cartridge.json
 
 # H-dungeon Codex Starter
 
@@ -22,7 +22,7 @@ Start the Vite development server:
 npm run dev
 ```
 
-The dev server is configured to listen on `0.0.0.0:4173`, so you can open the printed URL (for example, `http://127.0.0.1:4173/`) directly in your browser outside of the container.
+The dev server is configured to listen on `0.0.0.0:1111`, so you can open the printed URL (for example, `http://127.0.0.1:1111/`) directly in your browser outside of the container.
 
 ## Using the UI
 

@@ -1,5 +1,5 @@
 {
-  "version": "ui.v0.6",
+  "version": "v0.7",
   "coreStats": [
     {
       "id": "awareness",
@@ -70,7 +70,7 @@
     "control": 74,
     "allure": 22
   },
-  "semen": {
+  "cum": {
     "volume_ml": 120,
     "amount_ml": 210,
     "penis_size": "normal"
@@ -503,24 +503,24 @@
   "fluids": {
     "vagina": {
       "recentStim": 10,
-      "goo": 0,
-      "semen": 1
+      "slime": 0,
+      "cum": 0
     },
     "penis": {
       "recentStim": 12,
-      "goo": 0,
-      "semen": 1
+      "slime": 0,
+      "cum": 0
     },
     "anus": {
       "recentStim": 0,
-      "goo": 0,
-      "semen": 0
+      "slime": 0,
+      "cum": 0
     }
   },
   "tuning": {
     "wet": {
-      "arousalMultVag": 2.0,
-      "arousalMultPen": 2.0,
+      "arousalMultVag": 1.0,
+      "arousalMultPen": 1.0,
       "vagForeignUnit": 6,
       "anForeignUnit": 6,
       "penForeignUnit": 12,

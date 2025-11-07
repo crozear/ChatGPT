@@ -1,10 +1,10 @@
 
-// Lilith-5 Encounter Engine v0.6 (TypeScript)
+// Lilith-5 Encounter Engine v0.7 (TypeScript)
 // Drop-in helpers to keep the canvas small. No external deps.
 
 export type Rank = 'F'|'D'|'C'|'B'|'A'|'S';
 
-export interface FluidsCounter { goo: number; semen: number; }
+export interface FluidsCounter { slime: number; cum: number; }
 export interface FluidsState {
   vagina: FluidsCounter;
   penis: FluidsCounter;
@@ -84,13 +84,13 @@ export function tickBodyWetness(state: EngineState, prevArousal: number, encount
   const s = structuredClone(state);
   const { fluids, wet, tuning, minutesPerTurn } = s;
 
-  const arousalGain = Math.max(0, s.cond.arousal - prevArousal);
+  const arousalGain =  Math.max(0, s.cond.arousal - prevArousal);
   const selfV = clamp(Math.round(arousalGain * tuning.wet.arousalMultVag), 0, tuning.wet.maxSelfVag);
   const selfP = clamp(Math.round(arousalGain * tuning.wet.arousalMultPen), 0, tuning.wet.maxSelfPen);
 
-  const foreignV = clamp(tuning.wet.vagForeignUnit * (fluids.vagina.goo + fluids.vagina.semen), 0, 120);
-  const foreignA = clamp(tuning.wet.anForeignUnit * (fluids.anus.goo + fluids.anus.semen), 0, 120);
-  const foreignP = clamp(tuning.wet.penForeignUnit * (fluids.penis.goo + fluids.penis.semen), 0, 120);
+  const foreignV = clamp(tuning.wet.vagForeignUnit * (fluids.vagina.slime + fluids.vagina.cum), 0, 120);
+  const foreignA = clamp(tuning.wet.anForeignUnit * (fluids.anus.slime + fluids.anus.cum), 0, 120);
+  const foreignP = clamp(tuning.wet.penForeignUnit * (fluids.penis.slime + fluids.penis.cum), 0, 120);
 
   const lewdBonus = encounterActive ? Math.min(tuning.lewdBonus.max, Math.floor(Math.max(s.core.promiscuity, s.core.deviancy) / tuning.lewdBonus.step)) : 0;
   const dryRate = tuning.dry.bodyPerMin * minutesPerTurn;

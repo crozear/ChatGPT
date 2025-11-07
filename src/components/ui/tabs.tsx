@@ -7,35 +7,13 @@ export const Tabs = ({ defaultValue, children, className }: { defaultValue: stri
 };
 export const TabsList = ({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) =>
   <div className={clsx("inline-flex rounded-xl p-1 gap-1", className)} {...p} />;
-export const TabsTrigger = ({
-  value,
-  children,
-  className,
-  onClick,
-  type = "button",
-  ...p
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) => {
-  const ctx = useContext(Ctx)!;
-  const active = ctx.value === value;
-  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    ctx.set(value);
-    onClick?.(event);
-  };
+export const TabsTrigger = ({ value, children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }) => {
+  const ctx = useContext(Ctx)!; const active = ctx.value === value;
   return (
-    <button
-      type={type}
-      onClick={handleClick}
-      className={clsx(
-        "px-3 py-1.5 rounded-lg text-sm transition",
-        active ? "bg-zinc-800 text-zinc-100" : "text-zinc-300 hover:text-zinc-100",
-        className
-      )}
-      role="tab"
-      aria-selected={active}
-      {...p}
-    >
-      {children}
-    </button>
+    <button onClick={() => ctx.set(value)} className={clsx(
+      "px-3 py-1.5 rounded-lg text-sm transition",
+      active ? "bg-zinc-800 text-zinc-100" : "text-zinc-300 hover:text-zinc-100"
+    )} {...p}>{children}</button>
   );
 };
 export const TabsContent = ({ value, children, className }: { value: string; children: React.ReactNode; className?: string }) => {
