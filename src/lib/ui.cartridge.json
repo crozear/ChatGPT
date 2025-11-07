@@ -12,7 +12,7 @@
       "id": "purity",
       "name": "Purity",
       "desc": "How pure you feel; restores genitals faster at higher values.",
-      "value": 68,
+      "value": 87,
       "max": 100
     },
     {
@@ -62,12 +62,12 @@
     "active": true
   },
   "conditions": {
-    "pain": 12,
-    "arousal": 38,
-    "fatigue": 8,
-    "stress": 17,
-    "trauma": 4,
-    "control": 74,
+    "pain": 0,
+    "arousal": 37,
+    "fatigue": 5,
+    "stress": 0,
+    "trauma": 5,
+    "control": 10,
     "allure": 22
   },
   "cum": {
@@ -563,10 +563,27 @@
     }
   },
   "body": {
-    "hasPenis": true,
+    "hasPenis": false,
     "penisInches": 6,
+    "penisWetness": 0,
     "hasVagina": true,
     "vaginaDepthIn": 6,
-    "vaginaWidthIn": 1.5
-  }
+    "vaginaWidthIn": 1.5,
+    "vaginaWetness": 0,
+    "titsSize": "Modest (C)",
+    "assSize": "Round",
+    "sex": "Androgynous",
+    "gender": "Female",
+    "visibleFluids": {
+      "piss": false,
+      "slime": false,
+      "cum": false,
+      "femcum": false
+    }
+  },
+  "run": {
+    "location": "The Dungeon",
+    "intensity": 2
+  },
+  "stash": []
 }
