@@ -26,11 +26,19 @@ export interface ClothingItem {
   visible?: boolean;
 }
 
+export interface TransferSegment { wet: number; minutesToDamp: number; minutesToSoaked: number; }
+
+export interface TransferTuning {
+  dampThreshold: number;
+  soakedThreshold: number;
+  segments: TransferSegment[];
+}
+
 export interface Tuning {
   wet: { arousalMultVag: number; arousalMultPen: number; vagForeignUnit: number; anForeignUnit: number; penForeignUnit: number; maxSelfVag: number; maxSelfPen: number; };
   lewdBonus: { max: number; step: number; };
   dry: { bodyPerMin: number; clothesPerMin: number; };
-  transfer: { m: number; b: number; }; // rate per minute to under-bottoms: r(v) = m*v + b
+  transfer: TransferTuning;
   gate: { baseV: number; baseA: number; perInchDia: number; wetStep: number; };
   pain: { k: number; base: number; perInch: number; depthV: number; };
   orgasm: { resetBase: number; resetPerWill: number; willStunCutoff: number; };
@@ -107,8 +115,66 @@ export function transferLewdToClothes(state: EngineState): EngineState {
   const s = structuredClone(state);
   const { wet, clothing, tuning, minutesPerTurn } = s;
 
-  const ratePerMin = Math.max(0, tuning.transfer.m * wet.vagina + tuning.transfer.b);
-  const add = Math.round(ratePerMin * minutesPerTurn);
+  const segments = [...tuning.transfer.segments].sort((a, b) => a.wet - b.wet);
+  if (!segments.length || minutesPerTurn <= 0) return s;
+
+  const minutesFor = (targetWet: number, key: 'minutesToDamp' | 'minutesToSoaked') => {
+    const clampedWet = clamp(targetWet, segments[0].wet, segments[segments.length - 1].wet);
+    let lower = segments[0];
+    let upper = segments[segments.length - 1];
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      const a = segments[i];
+      const b = segments[i + 1];
+      if (clampedWet >= a.wet && clampedWet <= b.wet) {
+        lower = a;
+        upper = b;
+        break;
+      }
+    }
+    if (lower === upper) return lower[key] <= 0 ? Number.POSITIVE_INFINITY : lower[key];
+    const span = upper.wet - lower.wet || 1;
+    const t = (clampedWet - lower.wet) / span;
+    const minutes = lower[key] + (upper[key] - lower[key]) * t;
+    return minutes <= 0 ? Number.POSITIVE_INFINITY : minutes;
+  };
+
+  const dampMinutes = minutesFor(wet.vagina, 'minutesToDamp');
+  const soakedMinutes = Math.max(dampMinutes, minutesFor(wet.vagina, 'minutesToSoaked'));
+  const dampRate = dampMinutes === Number.POSITIVE_INFINITY ? 0 : tuning.transfer.dampThreshold / dampMinutes;
+  const soakRate = soakedMinutes === Number.POSITIVE_INFINITY || soakedMinutes === dampMinutes
+    ? 0
+    : (tuning.transfer.soakedThreshold - tuning.transfer.dampThreshold) / (soakedMinutes - dampMinutes);
+  const tailRate = soakRate > 0 ? soakRate : dampRate;
+
+  if (dampRate <= 0 && soakRate <= 0 && tailRate <= 0) return s;
+
+  const leak = (current: number) => {
+    let cur = current;
+    let minutesRemaining = minutesPerTurn;
+
+    const step = (target: number, rate: number) => {
+      if (minutesRemaining <= 0 || rate <= 0 || cur >= target) return;
+      const needed = target - cur;
+      const required = needed / rate;
+      if (required >= minutesRemaining) {
+        cur += rate * minutesRemaining;
+        minutesRemaining = 0;
+      } else {
+        cur = target;
+        minutesRemaining -= required;
+      }
+    };
+
+    step(tuning.transfer.dampThreshold, dampRate);
+    step(tuning.transfer.soakedThreshold, soakRate);
+
+    if (minutesRemaining > 0 && tailRate > 0) {
+      cur += tailRate * minutesRemaining;
+      minutesRemaining = 0;
+    }
+
+    return cur;
+  };
 
   const findIndexBy = (slots: string[]) => clothing.findIndex(c => slots.includes(c.slot));
   const ui = findIndexBy(['underwear','under_bottom','under bottoms','under_bottoms']); // flexible
@@ -116,18 +182,17 @@ export function transferLewdToClothes(state: EngineState): EngineState {
 
   const skirtLike = (name?: string) => !!name && /skirt|kilt/i.test(name);
 
-  if (add > 0) {
-    if (ui >= 0) {
-      clothing[ui].wetness = clamp((clothing[ui].wetness || 0) + add, 0, 200);
-      const uw = clothing[ui].wetness || 0;
-      if (uw >= 100 && bi >= 0 && !skirtLike(clothing[bi].name)) {
-        const overflow = uw - 100;
-        clothing[ui].wetness = 100;
-        clothing[bi].wetness = clamp((clothing[bi].wetness || 0) + overflow, 0, 200);
-      }
-    } else if (bi >= 0) {
-      clothing[bi].wetness = clamp((clothing[bi].wetness || 0) + add, 0, 200);
+  if (ui >= 0) {
+    const updated = clamp(leak(clothing[ui].wetness || 0), 0, 200);
+    if (updated > 100 && bi >= 0 && !skirtLike(clothing[bi].name)) {
+      const overflow = updated - 100;
+      clothing[ui].wetness = 100;
+      clothing[bi].wetness = clamp((clothing[bi].wetness || 0) + overflow, 0, 200);
+    } else {
+      clothing[ui].wetness = updated;
     }
+  } else if (bi >= 0) {
+    clothing[bi].wetness = clamp(leak(clothing[bi].wetness || 0), 0, 200);
   }
 
   return s;

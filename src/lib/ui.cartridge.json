@@ -536,8 +536,15 @@
       "clothesPerMin": 1
     },
     "transfer": {
-      "m": 0.0578,
-      "b": -3.202
+      "dampThreshold": 65,
+      "soakedThreshold": 90,
+      "segments": [
+        { "wet": 0, "minutesToDamp": 9999, "minutesToSoaked": 9999 },
+        { "wet": 30, "minutesToDamp": 90, "minutesToSoaked": 180 },
+        { "wet": 60, "minutesToDamp": 45, "minutesToSoaked": 105 },
+        { "wet": 90, "minutesToDamp": 18, "minutesToSoaked": 45 },
+        { "wet": 120, "minutesToDamp": 8, "minutesToSoaked": 20 }
+      ]
     },
     "gate": {
       "baseV": 12,
