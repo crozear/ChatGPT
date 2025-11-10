@@ -63,7 +63,16 @@ export interface Tuning {
 
 export interface CoreStats { awareness: number; purity: number; physique: number; will: number; beauty: number; promiscuity: number; exhibitionism: number; deviancy: number; }
 
-export interface Conditions { pain: number; arousal: number; fatigue: number; stress: number; trauma: number; control: number; allure: number; }
+export interface Conditions {
+  pain: number;
+  arousal: number;
+  fatigue: number;
+  stress: number;
+  trauma: number;
+  control: number;
+  allure: number;
+  anxiety?: number;
+}
 
 export interface EngineState {
   fluids: FluidsState;

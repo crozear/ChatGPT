@@ -27,6 +27,60 @@ const wetlab=(n:number)=>n>=100?"soaked through (transparent)":n>=80?"wet":n>=50
 const cat=(s:string)=>s==="top"?"tops":s==="bottom"?"bottoms":s==="underwear"?"under bottoms":s==="under_top"?"under tops":s==="outfit"?"outfits":s;
 const condText=(b:any,k:string,v:number)=>{const H:Record<string,number[]>={pain:[0,1,20,40,60,80,100],arousal:[0,1,20,40,60,80,100],fatigue:[0,1,20,40,60,80,100],stress:[0,1,20,40,60,80,100],trauma:[0,1,20,40,60,80,100],control:[0,20,40,60,70,80,100]};const th=H[k]||[0];let i=0;for(let t=0;t<th.length;t++)if(v>=th[t])i=t;const lab=b?.text?.conditions?.[k];if(lab?.length)return lab[i]||"";return DEFAULT_COND[k]?.[i]||""};
 const cloneSegments=(segments?:L5.TransferSegment[])=>segments?.map(seg=>({...seg}))||[];
+const AR_MAX=120;
+const STRESS_MAX=100;
+const TIME_MAX=1440;
+const calcAnxiety=(trauma:number)=>trauma>=70?2:trauma>=20?1:0;
+type MinutePassParams={cond:L5.Conditions;wet:L5.BodyWetness;minutes:number;timeSinceArousal:number;hasVagina:boolean;};
+const applyArousalWetnessTick=({current,arousal,timeSince,minutes}:{current:number;arousal:number;timeSince:number;minutes:number})=>{
+  if(minutes<=0)return clamp(Math.round(current),0,120);
+  const arousalPct=clamp(arousal/AR_MAX,0,1);
+  let wetnessChange=0;
+  if(arousal>=AR_MAX*(2/5)){
+    wetnessChange=1+arousalPct*2;
+    const wetPct=clamp(current/120,0,1);
+    wetnessChange=Math.floor(wetnessChange*2*(1-wetPct));
+  }
+  wetnessChange-=0.1*timeSince*(1-arousalPct);
+  if(arousal>=AR_MAX*(3/5)&&wetnessChange<0)wetnessChange=0;
+  let next=current+Math.round(wetnessChange*minutes);
+  next=clamp(Math.round(next),0,120);
+  if(next>=60){
+    const denom=Math.max(next,1);
+    next=clamp(Math.floor(120-3600/denom),0,120);
+  }
+  return next;
+};
+const minutePass=({cond,wet,minutes,timeSinceArousal,hasVagina}:MinutePassParams)=>{
+  const mins=Math.max(0,Math.floor(minutes));
+  const nextCond:{[K in keyof L5.Conditions]:L5.Conditions[K]}={...cond};
+  const nextWet:L5.BodyWetness={...wet};
+  const trauma=clamp(nextCond.trauma||0,0,100);
+  const anxiety=calcAnxiety(trauma);
+  if(mins>0)nextCond.pain=clamp((nextCond.pain||0)-mins,0,200);
+  const inControl=(nextCond.control||0)>=60;
+  if(!inControl&&anxiety>=2)nextCond.stress=clamp((nextCond.stress||0)+mins,0,STRESS_MAX);
+  else if(inControl||anxiety===0)nextCond.stress=clamp((nextCond.stress||0)-mins,0,STRESS_MAX);
+  else nextCond.stress=clamp(nextCond.stress||0,0,STRESS_MAX);
+  const newArousal=clamp((nextCond.arousal||0)-mins,0,AR_MAX);
+  nextCond.arousal=newArousal;
+  let nextTime=clamp(timeSinceArousal,0,TIME_MAX);
+  if(mins>0){
+    nextTime=newArousal<AR_MAX/4?clamp(nextTime+mins,0,TIME_MAX):1;
+  }
+  if(hasVagina)nextWet.vagina=applyArousalWetnessTick({current:nextWet.vagina,arousal:newArousal,timeSince:nextTime,minutes:mins});
+  else nextWet.vagina=0;
+  nextCond.anxiety=anxiety;
+  return{cond:nextCond,wet:nextWet,timeSinceArousal:nextTime};
+};
+const hourPass=(cond:L5.Conditions,hours:number)=>{
+  if(hours<=0)return cond;
+  const next:{[K in keyof L5.Conditions]:L5.Conditions[K]}={...cond};
+  const reduce=20+((next.trauma||0)<=0?5:0);
+  next.fatigue=clamp((next.fatigue||0)-hours*reduce,0,100);
+  next.control=clamp((next.control||0)+hours,0,100);
+  return next;
+};
 const mergeTuning=(src?:Partial<L5.Tuning>):L5.Tuning=>{
   const base=cart.tuning as L5.Tuning;
   return{
@@ -57,23 +111,30 @@ export default function App(){
     try {
       const saved = JSON.parse(localStorage.getItem(LS) || "{}");
       const prev  = saved.bundle || { ...CAR, clothing: CAR.equippedClothing };
+      const baseCond = prev.conditions || cart.conditions;
+      const trauma = +(baseCond?.trauma ?? 0);
+      const condWithAnxiety = { ...baseCond, anxiety: baseCond?.anxiety ?? calcAnxiety(trauma) };
       return {
         ...prev,
+        conditions: condWithAnxiety,
         fluids: prev.fluids || cart.fluids,
         tuning: prev.tuning || cart.tuning,
         wet:    prev.wet    || { vagina: 60, anus: 0, penis: 0 },
         sensitivity: prev.sensitivity || cart.sensitivity,
         minutesPerTurn: prev.minutesPerTurn ?? (saved.turnMins ?? 10),
+        timeSinceArousal: prev.timeSinceArousal ?? 0,
       };
     } catch {
       return {
         ...CAR,
         clothing: CAR.equippedClothing,
+        conditions: { ...cart.conditions, anxiety: calcAnxiety(cart.conditions?.trauma ?? 0) },
         fluids: cart.fluids,
         tuning: cart.tuning,
         wet: { vagina: 60, anus: 0, penis: 0 },
         sensitivity: cart.sensitivity,
         minutesPerTurn: 10,
+        timeSinceArousal: 0,
       };
     }
   });
@@ -108,16 +169,23 @@ export default function App(){
   }, [b, coreVal]);
 
   const applyEngine = C((s: L5.EngineState) => {
-    setB((prev: any) => ({
-      ...prev,
-      wet: s.wet,
-      clothing: s.clothing,
-      conditions: s.cond,
-      fluids: s.fluids,
-      tuning: s.tuning,
-      minutesPerTurn: s.minutesPerTurn,
-      sensitivity: s.sensitivity || prev.sensitivity,
-    }));
+    setB((prev: any) => {
+      const trauma = +(s.cond?.trauma ?? prev.conditions?.trauma ?? 0);
+      const anxiety = s.cond?.anxiety ?? calcAnxiety(trauma);
+      const arousal = +(s.cond?.arousal ?? prev.conditions?.arousal ?? 0);
+      const nextTime = arousal < AR_MAX / 4 ? (prev.timeSinceArousal ?? 0) : 1;
+      return {
+        ...prev,
+        wet: s.wet,
+        clothing: s.clothing,
+        conditions: { ...s.cond, anxiety },
+        fluids: s.fluids,
+        tuning: s.tuning,
+        minutesPerTurn: s.minutesPerTurn,
+        sensitivity: s.sensitivity || prev.sensitivity,
+        timeSinceArousal: clamp(nextTime, 0, TIME_MAX),
+      };
+    });
   }, []);
 
   const save = C((next:any) => setB(next), []);
@@ -171,9 +239,9 @@ export default function App(){
     arousalDraftRef.current = null;
   }, [toEngine, stimArea, hasP, applyEngine, push]);
 
-  const setCond=C((k:string,val:number,opt?:CondOptions)=>{if(k==="arousal"){commitArousal(val,opt);return}if(k!=="trauma"){setB((b:any)=>({...b,conditions:{...(b.conditions||{}),[k]:clamp((val|0),0,100)}}));return}const tgt=clamp((val|0),0,100);if(innocActive){const d=tgt-tShadow;if(d>0){setStored((t:number)=>clamp(t+d,0,100));setTShadow(tgt);push(`Trauma ${d} banked under Innocence`);return}if(d<0){let rem=-d,used=0;setStored((t:number)=>{used=Math.min(t,rem);return t-used});rem-=used;setTShadow(tgt);if(rem>0)setB((b:any)=>{const cur=+(b.conditions?.trauma||0);return{...b,conditions:{...b.conditions,trauma:clamp(cur-rem,0,100)}}});return}setTShadow(tgt);return}setTShadow(tgt);setB((b:any)=>({...b,conditions:{...(b.conditions||{}),trauma:tgt}}))},[innocActive,tShadow,push,commitArousal]);
+  const setCond=C((k:string,val:number,opt?:CondOptions)=>{if(k==="arousal"){commitArousal(val,opt);return}if(k!=="trauma"){setB((b:any)=>{const next=clamp((val|0),0,100);const cond={...(b.conditions||{}),[k]:next};const trauma=+(cond.trauma??0);return{...b,conditions:{...cond,anxiety:calcAnxiety(trauma)}}});return}const tgt=clamp((val|0),0,100);if(innocActive){const d=tgt-tShadow;if(d>0){setStored((t:number)=>clamp(t+d,0,100));setTShadow(tgt);push(`Trauma ${d} banked under Innocence`);return}if(d<0){let rem=-d,used=0;setStored((t:number)=>{used=Math.min(t,rem);return t-used});rem-=used;setTShadow(tgt);if(rem>0)setB((b:any)=>{const cur=+(b.conditions?.trauma||0);const cond={...b.conditions,trauma:clamp(cur-rem,0,100)};return{...b,conditions:{...cond,anxiety:calcAnxiety(cond.trauma??0)}}});return}setTShadow(tgt);return}setTShadow(tgt);setB((b:any)=>{const cond={...(b.conditions||{}),trauma:tgt};return{...b,conditions:{...cond,anxiety:calcAnxiety(cond.trauma??0)}}})},[innocActive,tShadow,push,commitArousal]);
 
-  const handleCondChange = C((k:string,n:number)=>{if(k!=="arousal"){setCond(k,n);return}arousalDraftRef.current=n;setB((p:any)=>({...p,conditions:{...(p.conditions||{}),arousal:n}}))},[setCond]);
+  const handleCondChange = C((k:string,n:number)=>{if(k!=="arousal"){setCond(k,n);return}arousalDraftRef.current=n;setB((p:any)=>{const cond={...(p.conditions||{}),arousal:n};const nextTime=n<AR_MAX/4?(p.timeSinceArousal??0):1;return{...p,conditions:cond,timeSinceArousal:clamp(nextTime,0,TIME_MAX)}})},[setCond]);
   const handleCondCommit = C((k:string)=>{if(k!=="arousal")return;const v=arousalDraftRef.current??(b.conditions?.arousal??0);commitArousal(v,{ignoreStimFocus:true})},[b.conditions?.arousal,commitArousal]);
 
   E(()=>{if(prevInRef.current&&!innocActive){if(stored>0){setB((b:any)=>({...b,conditions:{...b.conditions,trauma:clamp((b.conditions?.trauma||0)+stored,0,100)}}));push(`Innocence ended — applied ${stored} stored trauma.`);setStored(0)}else push("Innocence ended.")}prevInRef.current=innocActive},[innocActive,stored,push]);
@@ -200,20 +268,25 @@ export default function App(){
   const roll=C(()=>{const s=b.sexSkills?.[ri];if(!s){push("No skill selected.");return}const r=rank(s.pct),dm=DCM[r]??0,d=1+Math.floor(Math.random()*20),ef=d+dm,ok=ef>=dc;setLast({text:ok?"SUCCESS":"FAIL",color:ok?"text-emerald-400":"text-rose-400"});push(`Check: ${s.name} | d20:${d} (${r} ${dm>=0?"+":""}${dm} → ${ef}) vs DC ${dc} → ${ok?"SUCCESS":"FAIL"}`)},[b.sexSkills,ri,dc,push]);
   const addIt=C(()=>setStash((s:any)=>[...s,{id:(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`),kind:"misc",name:"New item",qty:1}]),[]), updIt=C((id:string,p:any)=>setStash((s:any[])=>s.map((i:any)=>i.id===id?{...i,...p}:i)),[]), delIt=C((id:string)=>setStash((s:any[])=>s.filter((i:any)=>i.id!==id)),[]);
   const ex=()=>{const out={version:b.version||CAR.version,coreStats:b.coreStats,innocence:b.innocence,conditions:b.conditions,equippedClothing:b.clothing,sexSkills:b.sexSkills,skillNodes:b.skillNodes,econRules:b.econRules,statMeta:b.statMeta,text:b.text,sensitivity:b.sensitivity,body:{hasPenis:hasP,penisInches:pIn,penisWetness:b.wet.penis,hasVagina:hasV,vaginaDepthIn:vDep,vaginaWidthIn:vWid,vaginaWetness:b.wet.vagina,anusWetness:b.wet.anus,titsSize:tits,assSize:ass,sex,gender,visibleFluids:visF},run:{location:loc,intensity:int},stash};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));a.download='ui.cartridge.json';a.click();URL.revokeObjectURL(a.href)};
-  const im=(e:any)=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(String(r.result));setB((b:any)=>({
+  const im=(e:any)=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(String(r.result));setB((b:any)=>{
+    const importedCond=j.conditions||b.conditions;
+    const trauma=+(importedCond?.trauma??0);
+    const condWithAnxiety={...importedCond,anxiety:calcAnxiety(trauma)};
+    return{
     ...b,
     version:j.version||b.version,
     coreStats:j.coreStats||b.coreStats,
     innocence:j.innocence||b.innocence,
-    conditions:j.conditions||b.conditions,
+    conditions:condWithAnxiety,
     clothing:(j.equippedClothing||j.clothing||b.clothing)?.map((c:any)=>({visible:c.slot!=="underwear",...c})),
     sexSkills:j.sexSkills||b.sexSkills,
     skillNodes:j.skillNodes||b.skillNodes,
     econRules:j.econRules||b.econRules,
     statMeta:j.statMeta||b.statMeta,
     text:j.text||b.text,
-    sensitivity:j.sensitivity||b.sensitivity
-  }));if(j.body){setB((p:any)=>({...p,wet:{...p.wet,vagina:clamp(+((j.body.vaginaWetness??p.wet?.vagina??0)),0,120),penis:clamp(+((j.body.penisWetness??p.wet?.penis??0)),0,120),anus:clamp(+((j.body.anusWetness??p.wet?.anus??0)),0,120)}}))}if(j.run){setLoc(j.run.location||loc);setInt(+j.run.intensity||int)}if(j.stash)setStash(j.stash);push('Imported ui.cartridge.json')}catch{push('Import failed: invalid JSON')}};r.readAsText(f)};
+    sensitivity:j.sensitivity||b.sensitivity,
+    timeSinceArousal:j.timeSinceArousal??b.timeSinceArousal??0
+  }}));if(j.body){setB((p:any)=>({...p,wet:{...p.wet,vagina:clamp(+((j.body.vaginaWetness??p.wet?.vagina??0)),0,120),penis:clamp(+((j.body.penisWetness??p.wet?.penis??0)),0,120),anus:clamp(+((j.body.anusWetness??p.wet?.anus??0)),0,120)}}))}if(j.run){setLoc(j.run.location||loc);setInt(+j.run.intensity||int)}if(j.stash)setStash(j.stash);push('Imported ui.cartridge.json')}catch{push('Import failed: invalid JSON')}};r.readAsText(f)};
   const innS=M(()=>innStage(inn),[inn]);
   const d20 = () => 1 + Math.floor(Math.random() * 20);
   const labelFromLength = (len: number) =>
@@ -228,10 +301,7 @@ export default function App(){
     lab === "Small" ? 1.2 :
     lab === "Normal"? 1.4 :
     lab === "Large" ? 1.6 : 1.8;
-  const auto=C(()=>{setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const prevA=+(prev.conditions?.arousal||0);let s=L5.tickBodyWetness(toEngine(prev),prevA,inEncounter);if(!hasP)s.wet.penis=0;s=L5.transferLewdToClothes(s);
-  const mins=Math.max(1,s.minutesPerTurn??turn);
-  s.cond.pain=L5.clamp(s.cond.pain-mins,0,200);
-  if((s.cond.control||0)>=60)s.cond.stress=L5.clamp((s.cond.stress||0)-1,0,100);s=L5.dryClothes(s);return{...prev,wet:s.wet,conditions:s.cond,clothing:s.clothing,fluids:s.fluids,tuning:s.tuning,minutesPerTurn:s.minutesPerTurn,sensitivity:s.sensitivity||prev.sensitivity}})},[hasP,toEngine,turn]);
+  const auto=C(()=>{setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const minutes=Math.max(1,(prev.minutesPerTurn??turn)|0);const prevA=+(prev.conditions?.arousal||0);const engineSnapshot=toEngine(prev);engineSnapshot.minutesPerTurn=minutes;let s=L5.tickBodyWetness(engineSnapshot,prevA,inEncounter);if(!hasP)s.wet.penis=0;const minuteResult=minutePass({cond:s.cond,wet:s.wet,minutes,timeSinceArousal:prev.timeSinceArousal??0,hasVagina:hasV});s.cond=minuteResult.cond;s.wet=minuteResult.wet;const hours=Math.floor(minutes/60);if(hours>0)s.cond=hourPass(s.cond,hours);s.minutesPerTurn=minutes;s=L5.transferLewdToClothes(s);s=L5.dryClothes(s);return{...prev,wet:s.wet,conditions:s.cond,clothing:s.clothing,fluids:s.fluids,tuning:s.tuning,minutesPerTurn:s.minutesPerTurn,sensitivity:s.sensitivity||prev.sensitivity,timeSinceArousal:minuteResult.timeSinceArousal}})},[hasP,hasV,toEngine,turn]);
   E(()=>setB((prev:any)=>prev.minutesPerTurn===turn?prev:{...prev,minutesPerTurn:turn}),[turn]);
   E(()=>{if(typeof localStorage==="undefined")return;const bundle={...b,clothing:b.clothing||[],fluids:b.fluids||cart.fluids,tuning:b.tuning||cart.tuning,wet:b.wet,sensitivity:b.sensitivity||cart.sensitivity,minutesPerTurn:b.minutesPerTurn??turn};const payload={bundle,location:loc,intensity:int,hasPenis:hasP,penisInches:pIn,hasVagina:hasV,vagDepth:vDep,vagWidth:vWid,titsSize:tits,assSize:ass,gender,visibleFluids:visF,turnMins:turn,innocencePool:inn,storedTrauma:stored,tShadow,stash,log};try{localStorage.setItem(LS,JSON.stringify(payload))}catch{}},[LS,b,loc,int,hasP,pIn,hasV,vDep,vWid,tits,ass,gender,visF,turn,inn,stored,tShadow,stash,log]);
   const Tabs=("Character|Attributes|Inventory|Skill Tree|Misc").split('|');
