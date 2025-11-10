@@ -12,6 +12,7 @@ const CN={p:"p-3",b:"border border-white/10",r:"rounded-2xl",g:"bg-zinc-900/80",
 const BOX=`${CN.b} ${CN.r} ${CN.g}`;
 const get=(o:any,p:string)=>p.split('.').reduce((a:any,k:string)=>a?.[k],o);
 const Gauge=({v,max}:{v:number;max:number})=>{const p=clamp((v/max)*100,0,100);return(<div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-zinc-800"><div style={{width:`${p}%`}} className="h-full bg-gradient-to-r from-fuchsia-500 via-purple-500 to-sky-500"/></div>)};
+const applyAwarenessGain=(stats:any[],amount:number,innActive:boolean,innVal:number)=>{if(!Array.isArray(stats)||amount<=0)return{stats,innDelta:0};const next=[...stats];const idx=next.findIndex((s:any)=>s?.id==="awareness");if(idx<0)return{stats,innDelta:0};const entry=next[idx]||{};let remaining=amount;let innDelta=0;if(innActive){const convertible=Math.min(-innVal,remaining);if(convertible>0){innDelta=convertible;remaining-=convertible;}}if(remaining>0){const max=typeof entry.max==='number'?entry.max:100;const value=clamp((entry.value||0)+remaining,0,max);next[idx]={...entry,value};}else next[idx]={...entry};return{stats:next,innDelta};};
 const Slider=({label,value,min=0,max=100,step=1,onChange}:{label:string;value:number;min?:number;max?:number;step?:number;onChange:(n:number)=>void})=> (<div className="grid gap-1"><span className={`text-xs ${CN.x}`}>{label}: <span className={`${CN.t} font-medium`}>{value}</span></span><input type="range" min={min} max={max} step={step} value={value} onInput={(e:any)=>onChange(+e.target.value)} className="w-full"/></div>);
 const DEFAULT_COND:{[k:string]:string[]}={
   pain:["You feel okay.","You are upset.","Tears well in your eyes.","Tears run down your face.","You are crying.","You cry and whimper.","You sob uncontrollably."],
@@ -64,6 +65,7 @@ export default function App(){
         wet:    prev.wet    || { vagina: 60, anus: 0, penis: 0 },
         sensitivity: prev.sensitivity || cart.sensitivity,
         minutesPerTurn: prev.minutesPerTurn ?? (saved.turnMins ?? 10),
+        timeSinceArousal: prev.timeSinceArousal ?? 1,
       };
     } catch {
       return {
@@ -74,6 +76,7 @@ export default function App(){
         wet: { vagina: 60, anus: 0, penis: 0 },
         sensitivity: cart.sensitivity,
         minutesPerTurn: 10,
+        timeSinceArousal: 1,
       };
     }
   });
@@ -228,10 +231,7 @@ export default function App(){
     lab === "Small" ? 1.2 :
     lab === "Normal"? 1.4 :
     lab === "Large" ? 1.6 : 1.8;
-  const auto=C(()=>{setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const prevA=+(prev.conditions?.arousal||0);let s=L5.tickBodyWetness(toEngine(prev),prevA,inEncounter);if(!hasP)s.wet.penis=0;s=L5.transferLewdToClothes(s);
-  const mins=Math.max(1,s.minutesPerTurn??turn);
-  s.cond.pain=L5.clamp(s.cond.pain-mins,0,200);
-  if((s.cond.control||0)>=60)s.cond.stress=L5.clamp((s.cond.stress||0)-1,0,100);s=L5.dryClothes(s);return{...prev,wet:s.wet,conditions:s.cond,clothing:s.clothing,fluids:s.fluids,tuning:s.tuning,minutesPerTurn:s.minutesPerTurn,sensitivity:s.sensitivity||prev.sensitivity}})},[hasP,toEngine,turn]);
+  const auto=C(()=>{let innAdjust=0;setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const eng=toEngine(prev);const prevA=+(prev.conditions?.arousal||0);const cond={...eng.cond};const mins=Math.max(1,Math.round(eng.minutesPerTurn??turn));const hours=Math.floor(mins/60);let awarenessGain=0;for(let i=0;i<hours;i+=1){if(innocActive&&((cond.control||0)<=0))awarenessGain+=1;cond.control=clamp((cond.control||0)+1,0,100);const fatigueDrop=20+((cond.trauma||0)<=0?5:0);cond.fatigue=clamp((cond.fatigue||0)-fatigueDrop,0,100);}const trauma=clamp(cond.trauma||0,0,100);const anxiety=trauma>=70?2:trauma>=20?1:0;const hasControl=(cond.control||0)>=60;const stressBase=clamp(cond.stress||0,0,100);if(!hasControl&&anxiety>=2)cond.stress=clamp(stressBase+mins,0,100);else if(stressBase<100&&(hasControl||anxiety===0))cond.stress=clamp(stressBase-mins,0,100);const arousalVal=clamp(cond.arousal||0,0,100);const arousalNext=clamp(arousalVal-mins,0,100);cond.arousal=arousalNext;cond.pain=clamp((cond.pain||0)-mins,0,200);eng.cond=cond;let next=L5.tickBodyWetness(eng,prevA,inEncounter);if(!hasP)next.wet.penis=0;next=L5.transferLewdToClothes(next);next=L5.dryClothes(next);const prevSince=typeof prev.timeSinceArousal==='number'?prev.timeSinceArousal:1;const nextSince=arousalNext<25?prevSince+mins:1;let coreStats=prev.coreStats;if(awarenessGain>0){const {stats,innDelta}=applyAwarenessGain(prev.coreStats||[],awarenessGain,innocActive,inn);coreStats=stats;innAdjust=innDelta;}return{...prev,wet:next.wet,conditions:next.cond,clothing:next.clothing,fluids:next.fluids,tuning:next.tuning,minutesPerTurn:next.minutesPerTurn,sensitivity:next.sensitivity||prev.sensitivity,timeSinceArousal:nextSince,coreStats}});if(innAdjust)setInn((v:number)=>clamp(v+innAdjust,-20,0));},[hasP,toEngine,turn,innocActive,inn]);
   E(()=>setB((prev:any)=>prev.minutesPerTurn===turn?prev:{...prev,minutesPerTurn:turn}),[turn]);
   E(()=>{if(typeof localStorage==="undefined")return;const bundle={...b,clothing:b.clothing||[],fluids:b.fluids||cart.fluids,tuning:b.tuning||cart.tuning,wet:b.wet,sensitivity:b.sensitivity||cart.sensitivity,minutesPerTurn:b.minutesPerTurn??turn};const payload={bundle,location:loc,intensity:int,hasPenis:hasP,penisInches:pIn,hasVagina:hasV,vagDepth:vDep,vagWidth:vWid,titsSize:tits,assSize:ass,gender,visibleFluids:visF,turnMins:turn,innocencePool:inn,storedTrauma:stored,tShadow,stash,log};try{localStorage.setItem(LS,JSON.stringify(payload))}catch{}},[LS,b,loc,int,hasP,pIn,hasV,vDep,vWid,tits,ass,gender,visF,turn,inn,stored,tShadow,stash,log]);
   const Tabs=("Character|Attributes|Inventory|Skill Tree|Misc").split('|');
