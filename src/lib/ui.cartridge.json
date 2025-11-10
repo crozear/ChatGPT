@@ -70,6 +70,12 @@
     "control": 10,
     "allure": 22
   },
+  "sensitivity": {
+    "chest": 2,
+    "mouth": 2,
+    "genital": 3,
+    "ass": 2
+  },
   "cum": {
     "volume_ml": 120,
     "amount_ml": 210,
@@ -497,6 +503,22 @@
         "You look lewd.",
         "You look perverted.",
         "You look like you need to be ravaged."
+      ]
+    },
+    "sensitivity": {
+      "title": "Sensitivity tiers",
+      "focusLabel": "Stimulation focus",
+      "areas": {
+        "chest": "Chest",
+        "mouth": "Mouth",
+        "genital": "Genitals",
+        "ass": "Ass"
+      },
+      "tiers": [
+        { "value": 1, "label": "Dulled" },
+        { "value": 2, "label": "Normal" },
+        { "value": 3, "label": "Tender" },
+        { "value": 4, "label": "Sensitive" }
       ]
     }
   },

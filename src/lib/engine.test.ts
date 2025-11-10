@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { transferLewdToClothes, type EngineState } from './engine';
+import { applyStimulation, transferLewdToClothes, type EngineState, type SensitivityMap } from './engine';
 
 const transferSegments = [
   { wet: 0, minutesToDamp: 9999, minutesToSoaked: 9999 },
@@ -63,7 +63,10 @@ const createState = (overrides: Partial<EngineState> = {}): EngineState => ({
     },
   minutesPerTurn: overrides.minutesPerTurn ?? 1,
   tuning: overrides.tuning ?? baseTuning,
+  sensitivity: overrides.sensitivity ?? { chest: 2, mouth: 2, genital: 2, ass: 2 },
 });
+
+const baseSensitivity: SensitivityMap = { chest: 2, mouth: 2, genital: 2, ass: 2 };
 
 describe('transferLewdToClothes', () => {
   it('caps underwear saturation at 100 and transfers overflow to the outer garment', () => {
@@ -164,5 +167,31 @@ describe('transferLewdToClothes', () => {
 
     expect(simulateMinutes(wetness, soakedTarget - 1)).toBeLessThan(baseTuning.transfer.soakedThreshold);
     expect(simulateMinutes(wetness, soakedTarget)).toBeGreaterThanOrEqual(baseTuning.transfer.soakedThreshold - EPS);
+  });
+});
+
+describe('applyStimulation', () => {
+  it('scales chest stimulation by tier differences', () => {
+    const tender = { ...baseSensitivity, chest: 3 };
+    const sensitive = { ...baseSensitivity, chest: 4 };
+    const prev = 20;
+    const will = 60;
+
+    const tenderResult = applyStimulation(prev, will, { amount: 10, area: 'chest' }, baseTuning, tender);
+    const sensitiveResult = applyStimulation(prev, will, { amount: 10, area: 'chest' }, baseTuning, sensitive);
+
+    expect(sensitiveResult.arousal).toBeGreaterThan(tenderResult.arousal);
+  });
+
+  it('uses mouth tier scaling independently from genital sensitivity', () => {
+    const tender = { ...baseSensitivity, mouth: 3 };
+    const sensitive = { ...baseSensitivity, mouth: 4 };
+    const prev = 15;
+    const will = 55;
+
+    const tenderResult = applyStimulation(prev, will, { amount: 8, area: 'mouth' }, baseTuning, tender);
+    const sensitiveResult = applyStimulation(prev, will, { amount: 8, area: 'mouth' }, baseTuning, sensitive);
+
+    expect(sensitiveResult.arousal).toBeGreaterThan(tenderResult.arousal);
   });
 });
