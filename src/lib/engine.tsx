@@ -17,6 +17,22 @@ export interface BodyWetness {
   anus: number;   // 0..120
 }
 
+export type SensitivityArea = 'chest'|'mouth'|'genital'|'ass';
+export type SensitivityTier = 1|2|3|4;
+
+export interface SensitivityMap {
+  chest: SensitivityTier;
+  mouth: SensitivityTier;
+  genital: SensitivityTier;
+  ass: SensitivityTier;
+}
+
+export type StimulusInput = number | {
+  amount?: number;
+  area?: SensitivityArea;
+  areas?: Partial<Record<SensitivityArea, number>>;
+};
+
 export interface ClothingItem {
   slot: string;              // 'top'|'bottom'|'under_top'|'underwear'|'outfit'...
   name: string;
@@ -49,9 +65,37 @@ export interface EngineState {
   cond: Conditions;
   minutesPerTurn: number;
   tuning: Tuning;
+  sensitivity: SensitivityMap;
 }
 
 export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
+
+const sensitivityMultiplier: Record<SensitivityTier, number> = {
+  1: 0.6,
+  2: 1,
+  3: 1.35,
+  4: 1.7,
+};
+
+const applySensitivity = (value: number, area: SensitivityArea | undefined, map?: SensitivityMap) => {
+  if (!area) return value;
+  const tier = map?.[area] ?? 2;
+  const mult = sensitivityMultiplier[tier as SensitivityTier] ?? 1;
+  return value * mult;
+};
+
+export const resolveStimulus = (stim: StimulusInput, map?: SensitivityMap): number => {
+  if (typeof stim === 'number') return stim;
+  const { amount = 0, area, areas } = stim;
+  let total = area ? applySensitivity(amount, area, map) : amount;
+  if (areas) {
+    for (const [key, val] of Object.entries(areas)) {
+      if (typeof val !== 'number') continue;
+      total += applySensitivity(val, key as SensitivityArea, map);
+    }
+  }
+  return total;
+};
 
 export const rankFromPct = (pct: number): Rank => {
   if (pct >= 100) return 'S';
@@ -185,8 +229,9 @@ export function penetrationGateDC(p: GateParams) {
 }
 
 /** Orgasm update given stimulation for this tick. */
-export function applyStimulation(arousal: number, will: number, stim: number, t: Tuning) {
-  let a = clamp(arousal + stim, 0, 120);
+export function applyStimulation(arousal: number, will: number, stim: StimulusInput, t: Tuning, sensitivity?: SensitivityMap) {
+  const scaled = Math.round(resolveStimulus(stim, sensitivity));
+  let a = clamp(arousal + scaled, 0, 120);
   let stunnedTurns = 0;
   if (a >= 100) {
     a = t.orgasm.resetBase + Math.floor(will / t.orgasm.resetPerWill);
