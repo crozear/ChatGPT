@@ -71,10 +71,10 @@
     "allure": 22
   },
   "sensitivity": {
-    "chest": 2,
+    "chest": 1,
     "mouth": 2,
-    "genital": 3,
-    "ass": 2
+    "genital": 4,
+    "ass": 3
   },
   "cum": {
     "volume_ml": 120,
@@ -515,8 +515,8 @@
         "ass": "Ass"
       },
       "tiers": [
-        { "value": 1, "label": "Dulled" },
-        { "value": 2, "label": "Normal" },
+        { "value": 1, "label": "Normal" },
+        { "value": 2, "label": "Receptive" },
         { "value": 3, "label": "Tender" },
         { "value": 4, "label": "Sensitive" }
       ]

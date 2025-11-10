@@ -172,8 +172,8 @@ describe('transferLewdToClothes', () => {
 
 describe('applyStimulation', () => {
   it('scales chest stimulation by tier differences', () => {
-    const tender = { ...baseSensitivity, chest: 3 };
-    const sensitive = { ...baseSensitivity, chest: 4 };
+    const tender: SensitivityMap = { ...baseSensitivity, chest: 3 };
+    const sensitive: SensitivityMap = { ...baseSensitivity, chest: 4 };
     const prev = 20;
     const will = 60;
 
@@ -184,8 +184,8 @@ describe('applyStimulation', () => {
   });
 
   it('uses mouth tier scaling independently from genital sensitivity', () => {
-    const tender = { ...baseSensitivity, mouth: 3 };
-    const sensitive = { ...baseSensitivity, mouth: 4 };
+    const tender: SensitivityMap = { ...baseSensitivity, mouth: 3 };
+    const sensitive: SensitivityMap = { ...baseSensitivity, mouth: 4 };
     const prev = 15;
     const will = 55;
 

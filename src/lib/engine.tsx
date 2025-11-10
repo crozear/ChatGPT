@@ -79,10 +79,10 @@ export interface EngineState {
 export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
 const sensitivityMultiplier: Record<SensitivityTier, number> = {
-  1: 0.6,
-  2: 1,
-  3: 1.35,
-  4: 1.7,
+  1: 1,
+  2: 1.5,
+  3: 2,
+  4: 2.5,
 };
 
 const applySensitivity = (value: number, area: SensitivityArea | undefined, map?: SensitivityMap) => {

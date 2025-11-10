@@ -26,6 +26,26 @@ const integ=(n:number)=>n<=0?"destroyed":n<20?"tattered":n<50?"torn":n<90?"fraye
 const wetlab=(n:number)=>n>=100?"soaked through (transparent)":n>=80?"wet":n>=50?"damp":n<40?"dry":n<70?"drying out":n<90?"dry enough to conceal":"";
 const cat=(s:string)=>s==="top"?"tops":s==="bottom"?"bottoms":s==="underwear"?"under bottoms":s==="under_top"?"under tops":s==="outfit"?"outfits":s;
 const condText=(b:any,k:string,v:number)=>{const H:Record<string,number[]>={pain:[0,1,20,40,60,80,100],arousal:[0,1,20,40,60,80,100],fatigue:[0,1,20,40,60,80,100],stress:[0,1,20,40,60,80,100],trauma:[0,1,20,40,60,80,100],control:[0,20,40,60,70,80,100]};const th=H[k]||[0];let i=0;for(let t=0;t<th.length;t++)if(v>=th[t])i=t;const lab=b?.text?.conditions?.[k];if(lab?.length)return lab[i]||"";return DEFAULT_COND[k]?.[i]||""};
+const cloneSegments=(segments?:L5.TransferSegment[])=>segments?.map(seg=>({...seg}))||[];
+const mergeTuning=(src?:Partial<L5.Tuning>):L5.Tuning=>{
+  const base=cart.tuning as L5.Tuning;
+  return{
+    ...base,
+    ...(src||{}),
+    wet:{...base.wet,...(src?.wet||{})},
+    lewdBonus:{...base.lewdBonus,...(src?.lewdBonus||{})},
+    dry:{...base.dry,...(src?.dry||{})},
+    transfer:{
+      ...base.transfer,
+      ...(src?.transfer||{}),
+      segments:cloneSegments(src?.transfer?.segments?.length?src.transfer.segments:base.transfer.segments)
+    },
+    gate:{...base.gate,...(src?.gate||{})},
+    pain:{...base.pain,...(src?.pain||{})},
+    orgasm:{...base.orgasm,...(src?.orgasm||{})},
+    encounter:{...base.encounter,...(src?.encounter||{})}
+  };
+};
 const Card=({s,meta,onChange,awMode,onGainAw,desc}:{s:any;meta:any;onChange:(id:string,v:number)=>void;awMode?:boolean;onGainAw?:(n:number)=>void;desc?:string})=>{const i=stageOf(s,meta),[drag,setD]=S(false),[tmp,setT]=S(+s.value||0);E(()=>{if(!drag&&!awMode)setT(+s.value||0)},[s.value,drag,awMode]);return(<div className={`${BOX} ${CN.p}`}><div className="flex items-center justify-between"><div className={`text-sm font-semibold ${CN.t}`}>{s.name}</div><div className={`text-xs ${CN.s}`}>{s.value}/{s.max}</div></div><div className={`mt-1 text-xs ${CN.s}`}>{desc||s.desc||""}</div><Gauge v={s.value||0} max={s.max||100}/><div className={`mt-2 ${CN.b} ${CN.r} ${CN.z} p-2`}><div className={`text-[11px] ${CN.t}`}>Stage: {i.stage}{i.steps?` • ${i.index}/${i.steps-1}`:""}</div><div className={`mt-1 text-[11px] ${CN.x}`}>{i.summary}</div></div><div className="mt-2 grid gap-1">{awMode?(<><span className={`text-xs ${CN.x}`}>Gain Awareness: <span className={`${CN.t} font-medium`}>{tmp}</span></span><input type="range" min={0} max={s.max||100} step={1} value={tmp} onInput={(e:any)=>{const v=+e.target.value;const d=Math.max(0,v-tmp);setT(v);onGainAw&&onGainAw(d)}} onPointerUp={()=>setT(0)} className="w-full"/><div className={`text-[11px] ${CN.x}`}>Awareness reduces Innocence first, then fills Awareness.</div></>):(<><span className={`text-xs ${CN.x}`}>Adjust: <span className={`${CN.t} font-medium`}>{tmp}</span></span><input type="range" min={0} max={s.max||100} step={1} value={tmp} onPointerDown={()=>setD(true)} onPointerUp={()=>setD(false)} onMouseUp={()=>setD(false)} onTouchEnd={()=>setD(false)} onInput={(e:any)=>{const v=+e.target.value;setT(v);onChange(s.id,v)}} className="w-full"/></>)}</div></div>)};
 const allureCalc=(cs:any[],bi:number,vis:{piss:boolean;slime:boolean;cum:boolean;femcum:boolean})=>{const tr=(c:any)=>(c?.wetness||0)>=100,vs=(c:any)=>!!c?.visible,cv=(a:string[])=>cs.some((c:any)=>a.includes(c.slot)&&vs(c)&&!tr(c)),tp=cv(["top","outfit"]),bt=cv(["bottom","outfit"]),ut=cs.find((c:any)=>c.slot==="under_top"),ub=cs.find((c:any)=>c.slot==="underwear"),utv=!!ut&&vs(ut)&&!tp&&!tr(ut),ubv=!!ub&&vs(ub)&&!bt&&!tr(ub),ce=!tp&&(!ut||tr(ut)),le=!bt&&(!ub||tr(ub)),rv=cs.reduce((a:number,c:any)=>a+((vs(c)&&!tr(c))?Math.round((+c.reveal||0)/10):0),0),fl=5*[vis.piss,vis.slime,vis.cum,vis.femcum].filter(Boolean).length;return clamp(rv+(ce?10:0)+(le?10:0)+(utv?5:0)+(ubv?5:0)+5*bi+fl,0,100)};
 const innStage=(v:number)=>({stage:v===-20?"You are oblivious.":v<=-17?"You are naive.":v<=-13?"You are trusting.":v<=-9?"You are curious.":v<=-5?"You are perplexed.":"You are uncertain.",index:v===-20?0:v<=-17?1:v<=-13?2:v<=-9?3:v<=-5?4:5,steps:6});
@@ -57,30 +77,35 @@ export default function App(){
       };
     }
   });
-  const coreVal = C((id:string) =>
-  +(b.coreStats?.find((s:any)=>s.id===id)?.value || 0),
-  [b.coreStats]
-  );
+  const coreVal = C((id:string, src?:any) => {
+    const list = (src?.coreStats ?? b.coreStats) || [];
+    return +(list.find((s:any)=>s.id===id)?.value || 0);
+  }, [b.coreStats]);
 
-  const toEngine = C((): L5.EngineState => ({
-    fluids: b.fluids,
-    wet: b.wet,
-    clothing: b.clothing || [],
-    core: {
-      awareness: coreVal("awareness"),
-      purity: coreVal("purity"),
-      physique: coreVal("physique"),
-      will: coreVal("will"),
-      beauty: coreVal("beauty"),
-      promiscuity: coreVal("promiscuity"),
-      exhibitionism: coreVal("exhibitionism"),
-      deviancy: coreVal("deviancy"),
-    },
-    cond: b.conditions,
-    minutesPerTurn: b.minutesPerTurn ?? 10,
-    tuning: b.tuning,
-    sensitivity: b.sensitivity || cart.sensitivity,
-  }), [b, coreVal]);
+  const toEngine = C((snapshot?: any): L5.EngineState => {
+    const src = snapshot ?? b;
+    const wet = src.wet || { vagina: 60, anus: 0, penis: 0 };
+    const tuning = mergeTuning(src?.tuning);
+    return {
+      fluids: src.fluids || cart.fluids,
+      wet,
+      clothing: src.clothing || [],
+      core: {
+        awareness: coreVal("awareness", src),
+        purity: coreVal("purity", src),
+        physique: coreVal("physique", src),
+        will: coreVal("will", src),
+        beauty: coreVal("beauty", src),
+        promiscuity: coreVal("promiscuity", src),
+        exhibitionism: coreVal("exhibitionism", src),
+        deviancy: coreVal("deviancy", src),
+      },
+      cond: src.conditions || cart.conditions,
+      minutesPerTurn: src.minutesPerTurn ?? 10,
+      tuning,
+      sensitivity: src.sensitivity || cart.sensitivity,
+    };
+  }, [b, coreVal]);
 
   const applyEngine = C((s: L5.EngineState) => {
     setB((prev: any) => ({
@@ -121,8 +146,7 @@ export default function App(){
   const innocActive=(inn<0);const prevInRef=R(innocActive);
   const setCore=C((id:string,val:number)=>setB((b:any)=>{if(id!=="awareness")return{...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id===id?{...s,value:clamp((val|0),0,s.max||100)}:s)};if(innocActive)return{...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id==="awareness"?{...s,value:0}:s)};return{...b,coreStats:(b.coreStats||[]).map((s:any)=>s.id==="awareness"?{...s,value:clamp((val|0),0,s.max||100)}:s)}}),[innocActive]);
   const gainAw=C((am:number)=>setB((b:any)=>{const a=[...(b.coreStats||[])],i=a.findIndex((s:any)=>s.id==="awareness"),cur=+(a[i]?.value||0),mx=+(a[i]?.max||100);if(innocActive){const need=-inn;if(am<=need){setInn((p:number)=>p+am);push(`Innocence reduced by ${am}`);return{...b,coreStats:a.map((s:any,k:number)=>k===i?{...s,value:0}:s)}}const rem=am-need;setInn(0);const nv=clamp(cur+rem,0,mx);push(`Innocence ended; Awareness +${rem}`);return{...b,coreStats:a.map((s:any,k:number)=>k===i?{...s,value:nv}:s)}}const nv=clamp(cur+am,0,mx);return{...b,coreStats:a.map((s:any,k:number)=>k===i?{...s,value:nv}:s)}}),[innocActive,push]);
-  const setCond=C((k:string,val:number)=>{if(k==="arousal"){const prev=+(b.conditions.arousal||0);const will=coreVal("will");const t=(b as any).tuning||cart.tuning;const sens=(b as any).sensitivity||cart.sensitivity;const r=L5.applyStimulation(prev,will,{amount:val-prev,area:stimArea},t,sens);const coreSnapshot={awareness:coreVal("awareness"),purity:coreVal("purity"),physique:coreVal("physique"),will,beauty:coreVal("beauty"),promiscuity:coreVal("promiscuity"),exhibitionism:coreVal("exhibitionism"),deviancy:coreVal("deviancy")};const eng={fluids:b.fluids||cart.fluids,wet:{...b.wet},clothing:b.clothing||[],core:coreSnapshot,cond:{...b.conditions,arousal:r.arousal},minutesPerTurn:turn,tuning:t,sensitivity:sens};const next=L5.tickBodyWetness(eng,prev,false);setB((bb:any)=>({...bb,wet:next.wet,conditions:{...bb.conditions,arousal:r.arousal}}));if(r.stunnedTurns)push(`Orgasm → stunned ${r.stunnedTurns} turn${r.stunnedTurns===1?"":"s"}`);return}if(k!=="trauma"){setB((b:any)=>({...b,conditions:{...(b.conditions||{}),[k]:clamp((val|0),0,100)}}));return}const tgt=clamp((val|0),0,100);if(innocActive){const d=tgt-tShadow;if(d>0){setStored((t:number)=>clamp(t+d,0,100));setTShadow(tgt);push(`Trauma ${d} banked under Innocence`);return}if(d<0){let rem=-d,used=0;setStored((t:number)=>{used=Math.min(t,rem);return t-used});rem-=used;setTShadow(tgt);if(rem>0)setB((b:any)=>{const cur=+(b.conditions?.trauma||0);return{...b,conditions:{...b.conditions,trauma:clamp(cur-rem,0,100)}}});return}setTShadow(tgt);return}setTShadow(tgt);setB((b:any)=>({...b,conditions:{...(b.conditions||{}),trauma:tgt}}))},[innocActive,tShadow,push,turn,coreVal,b.conditions,b.clothing,b.fluids,b.wet,b.tuning,b.sensitivity,stimArea]);
-    // track the last committed arousal and a draft while dragging
+  type CondOptions = { ignoreStimFocus?: boolean };
   const lastACommitRef = R<number>(b.conditions?.arousal ?? 0);
   const arousalDraftRef = R<number | null>(null);
 
@@ -132,55 +156,26 @@ export default function App(){
     }
   }, [b.conditions?.arousal]);
 
-  const commitArousal = (finalVal: number) => {
+  const commitArousal = C((finalVal: number, opt?: CondOptions) => {
     const prev = lastACommitRef.current;
-    const will = coreVal("will");
-    const t = (b as any).tuning || cart.tuning;
-    const sens = (b as any).sensitivity || cart.sensitivity;
-    const r = L5.applyStimulation(prev, will, { amount: finalVal - prev, area: stimArea }, t, sens);
-
-    const eng = {
-      fluids: b.fluids || cart.fluids,
-      wet: { ...(b.wet || {vagina:0, anus:0, penis:0}) },
-      clothing: b.clothing || [],
-      core: {
-        awareness:coreVal("awareness"),
-        purity:coreVal("purity"),
-        physique:coreVal("physique"),
-        will,
-        beauty:coreVal("beauty"),
-        promiscuity:coreVal("promiscuity"),
-        exhibitionism:coreVal("exhibitionism"),
-        deviancy:coreVal("deviancy"),
-      },
-      cond: { ...b.conditions, arousal: r.arousal },
-      minutesPerTurn: b.minutesPerTurn ?? 10,
-      tuning: t,
-      sensitivity: sens
-    };
-
+    const eng = toEngine();
+    const stim: L5.StimulusInput = { amount: finalVal - prev };
+    if (!opt?.ignoreStimFocus) stim.area = stimArea;
+    const r = L5.applyStimulation(prev, eng.core.will, stim, eng.tuning, eng.sensitivity);
+    eng.cond = { ...eng.cond, arousal: r.arousal };
     let next = L5.tickBodyWetness(eng, prev, false);
-    if (!hasP) next.wet.penis = 0; // no-penis clamp
-    
-    setB((bb:any) => ({ ...bb, wet: next.wet, conditions: { ...(bb.conditions||{}), arousal: r.arousal } }));
+    if (!hasP) next.wet.penis = 0;
+    applyEngine(next);
     if (r.stunnedTurns) push(`Orgasm → stunned ${r.stunnedTurns} turn${r.stunnedTurns===1?"":"s"}`);
     lastACommitRef.current = r.arousal;
     arousalDraftRef.current = null;
-  };
-  
-  // generic handlers used by the mapped sliders
-  const handleCondChange = C((k:string, n:number) => {
-    if (k !== "arousal") { setCond(k, n); return; }
-    // while dragging arousal: update the visible number only
-    arousalDraftRef.current = n;
-    setB((p:any) => ({ ...p, conditions:{ ...p.conditions, arousal:n }}));
-  }, [setCond, b]);
+  }, [toEngine, stimArea, hasP, applyEngine, push]);
 
-  const handleCondCommit = C((k:string) => {
-    if (k !== "arousal") return;
-    const v = arousalDraftRef.current ?? (b.conditions?.arousal ?? 0);
-    commitArousal(v);
-  }, [b.conditions?.arousal, commitArousal]);
+  const setCond=C((k:string,val:number,opt?:CondOptions)=>{if(k==="arousal"){commitArousal(val,opt);return}if(k!=="trauma"){setB((b:any)=>({...b,conditions:{...(b.conditions||{}),[k]:clamp((val|0),0,100)}}));return}const tgt=clamp((val|0),0,100);if(innocActive){const d=tgt-tShadow;if(d>0){setStored((t:number)=>clamp(t+d,0,100));setTShadow(tgt);push(`Trauma ${d} banked under Innocence`);return}if(d<0){let rem=-d,used=0;setStored((t:number)=>{used=Math.min(t,rem);return t-used});rem-=used;setTShadow(tgt);if(rem>0)setB((b:any)=>{const cur=+(b.conditions?.trauma||0);return{...b,conditions:{...b.conditions,trauma:clamp(cur-rem,0,100)}}});return}setTShadow(tgt);return}setTShadow(tgt);setB((b:any)=>({...b,conditions:{...(b.conditions||{}),trauma:tgt}}))},[innocActive,tShadow,push,commitArousal]);
+
+  const handleCondChange = C((k:string,n:number)=>{if(k!=="arousal"){setCond(k,n);return}arousalDraftRef.current=n;setB((p:any)=>({...p,conditions:{...(p.conditions||{}),arousal:n}}))},[setCond]);
+  const handleCondCommit = C((k:string)=>{if(k!=="arousal")return;const v=arousalDraftRef.current??(b.conditions?.arousal??0);commitArousal(v,{ignoreStimFocus:true})},[b.conditions?.arousal,commitArousal]);
+
   E(()=>{if(prevInRef.current&&!innocActive){if(stored>0){setB((b:any)=>({...b,conditions:{...b.conditions,trauma:clamp((b.conditions?.trauma||0)+stored,0,100)}}));push(`Innocence ended — applied ${stored} stored trauma.`);setStored(0)}else push("Innocence ended.")}prevInRef.current=innocActive},[innocActive,stored,push]);
   const sex=(()=>{const i=["Flat (Flat/AAA)","Budding (AA)","Tiny (A)","Small (B)","Modest (C)","Full (D)","Large (DD)","Huge (E+)"].indexOf(tits),big=i>=2,flat=i<=1;return hasP&&!hasV?(big?"Dick-Girl":"Male"):!hasP&&hasV?(flat?"Cunt-Boy":"Female"):hasP&&hasV?(big?"Futa":"Herm"):"Androgynous"})();
   const bIdx=M(()=>stageOf({id:"beauty",value:beauty,max:100},b.statMeta||{}).index??0,[beauty,b.statMeta]);
@@ -233,9 +228,10 @@ export default function App(){
     lab === "Small" ? 1.2 :
     lab === "Normal"? 1.4 :
     lab === "Large" ? 1.6 : 1.8;
-  const auto=C(()=>{const inEncounter=!!(b as any)?.encounter?.active;const prevA=+(b.conditions.arousal||0);const t=(b as any).tuning||cart.tuning;const sens=(b as any).sensitivity||cart.sensitivity;const coreSnapshot={awareness:coreVal("awareness"),purity:coreVal("purity"),physique:coreVal("physique"),will:coreVal("will"),beauty:coreVal("beauty"),promiscuity:coreVal("promiscuity"),exhibitionism:coreVal("exhibitionism"),deviancy:coreVal("deviancy")};const eng={fluids:b.fluids||cart.fluids,wet:{...b.wet},clothing:b.clothing||[],core:coreSnapshot,cond:{...b.conditions},minutesPerTurn:turn,tuning:t,sensitivity:sens};let s=L5.tickBodyWetness(eng,prevA,inEncounter);if (!hasP) s.wet.penis = 0;s=L5.transferLewdToClothes(s);      // simple passive decays on the engine result
-  s.cond.pain = L5.clamp(s.cond.pain - (1 + Math.floor(s.core.will / 50)), 0, 200);
-  if (s.cond.control >= 60) s.cond.stress = L5.clamp(s.cond.stress - 1, 0, 100);s=L5.dryClothes(s);setB((prev:any)=>({...prev,wet:s.wet,conditions:s.cond,clothing:s.clothing}))},[b,turn,coreVal,hasP]);
+  const auto=C(()=>{setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const prevA=+(prev.conditions?.arousal||0);let s=L5.tickBodyWetness(toEngine(prev),prevA,inEncounter);if(!hasP)s.wet.penis=0;s=L5.transferLewdToClothes(s);
+  const mins=Math.max(1,s.minutesPerTurn??turn);
+  s.cond.pain=L5.clamp(s.cond.pain-mins,0,200);
+  if((s.cond.control||0)>=60)s.cond.stress=L5.clamp((s.cond.stress||0)-1,0,100);s=L5.dryClothes(s);return{...prev,wet:s.wet,conditions:s.cond,clothing:s.clothing,fluids:s.fluids,tuning:s.tuning,minutesPerTurn:s.minutesPerTurn,sensitivity:s.sensitivity||prev.sensitivity}})},[hasP,toEngine,turn]);
   E(()=>setB((prev:any)=>prev.minutesPerTurn===turn?prev:{...prev,minutesPerTurn:turn}),[turn]);
   E(()=>{if(typeof localStorage==="undefined")return;const bundle={...b,clothing:b.clothing||[],fluids:b.fluids||cart.fluids,tuning:b.tuning||cart.tuning,wet:b.wet,sensitivity:b.sensitivity||cart.sensitivity,minutesPerTurn:b.minutesPerTurn??turn};const payload={bundle,location:loc,intensity:int,hasPenis:hasP,penisInches:pIn,hasVagina:hasV,vagDepth:vDep,vagWidth:vWid,titsSize:tits,assSize:ass,gender,visibleFluids:visF,turnMins:turn,innocencePool:inn,storedTrauma:stored,tShadow,stash,log};try{localStorage.setItem(LS,JSON.stringify(payload))}catch{}},[LS,b,loc,int,hasP,pIn,hasV,vDep,vWid,tits,ass,gender,visF,turn,inn,stored,tShadow,stash,log]);
   const Tabs=("Character|Attributes|Inventory|Skill Tree|Misc").split('|');
@@ -265,9 +261,8 @@ export default function App(){
               <div
                 key={k}
                 className={`${CN.r} ${CN.b} ${CN.z} p-2`}
-                onPointerUp={() => handleCondCommit(k)}
-                onTouchEnd={() => handleCondCommit(k)}
-                
+                onPointerUp={()=>handleCondCommit(k)}
+                onTouchEnd={()=>handleCondCommit(k)}
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className="capitalize text-zinc-200">{k}</span>
@@ -279,9 +274,7 @@ export default function App(){
                   <Slider
                     label="Adjust"
                     value={v}
-                    onChange={(n)=>handleCondChange(k,n)}
-                    // If your Slider supports it, you can also add:
-                    // onChangeEnd={() => handleCondCommit(k)}
+                    onChange={n=>handleCondChange(k,n)}
                   />
                 </div>
               </div>
