@@ -2,6 +2,7 @@
 import React, {useCallback as C, useEffect as E, useMemo as M, useRef as R, useState as S} from "react";
 import Button from "./components/ui/button";
 import * as L5 from "./lib/engine";
+import * as ENC from "./lib/encounter";
 import cart from "./lib/ui.cartridge.json";
 
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
@@ -67,6 +68,7 @@ export default function App(){
         minutesPerTurn: prev.minutesPerTurn ?? (saved.turnMins ?? 10),
         timeSinceArousal: prev.timeSinceArousal ?? 1,
         timeSinceHour: prev.timeSinceHour ?? 0,
+      encounter: prev.encounter ?? ENC.defaultEncounter(),
       };
     } catch {
       return {
@@ -79,6 +81,7 @@ export default function App(){
         minutesPerTurn: 10,
         timeSinceArousal: 1,
         timeSinceHour: 0,
+        encounter: ENC.defaultEncounter(),
       };
     }
   });
@@ -239,10 +242,72 @@ export default function App(){
     lab === "Small" ? 1.2 :
     lab === "Normal"? 1.4 :
     lab === "Large" ? 1.6 : 1.8;
+
+  // Encounter harness (DoL-inspired). Stored in b.encounter; "auto" tick already respects encounter.active.
+  const enc: any = (b as any).encounter ?? ENC.defaultEncounter();
+  const [encAction, setEncAction] = S<string>(() => enc?.lastActionId || "struggle");
+  E(() => {
+    if (enc?.lastActionId && encAction !== enc.lastActionId) setEncAction(enc.lastActionId);
+  }, [enc?.lastActionId]); // keep selector in sync when action changes elsewhere
+
+  const buildEncCtx = C(() => {
+    const skill = b.sexSkills?.[ri];
+    const lab = labelFromLength(hasP ? pIn : 0);
+    const dia = diaFromLabel(lab);
+    return {
+      hasVagina: hasV,
+      hasPenis: hasP,
+      vagDepthIn: vDep,
+      vagWidthIn: vWid,
+      playerPenisLengthIn: pIn,
+      playerPenisDiaIn: dia,
+      skillName: skill?.name || "Skill",
+      skillPct: (skill?.pct ?? 40),
+      timeSinceArousal: (b.timeSinceArousal ?? 1),
+    } as ENC.ResolveContext;
+  }, [b.sexSkills, ri, hasV, hasP, vDep, vWid, pIn, b.timeSinceArousal]);
+
+  const startEnc = C(() => {
+    const eng = toEngine();
+    const r = ENC.startEncounter(eng, enc);
+    setB((p:any) => ({ ...p, encounter: r.encounter }));
+    r.lines.forEach(push);
+  }, [toEngine, enc, push]);
+
+  const endEnc = C(() => {
+    const r = ENC.endEncounter();
+    setB((p:any) => ({ ...p, encounter: r.encounter }));
+    r.lines.forEach(push);
+  }, [push]);
+
+  const patchEnemy = C((patch:any) => {
+    setB((p:any) => {
+      const cur = (p as any).encounter ?? ENC.defaultEncounter();
+      return { ...p, encounter: { ...cur, enemy: { ...(cur.enemy||{}), ...patch } } };
+    });
+  }, []);
+
+  const doEncTurn = C(() => {
+    if (!enc.active) { push("Encounter not active."); return; }
+    const eng = toEngine();
+    const ctx = buildEncCtx();
+    const r = ENC.resolveTurn(eng, enc, encAction, ctx);
+    applyEngine(r.engine);
+    setB((p:any) => ({ ...p, encounter: r.encounter, timeSinceArousal: r.timeSinceArousal }));
+    r.lines.forEach(push);
+  }, [enc, encAction, toEngine, buildEncCtx, applyEngine, push]);
+
+  const encActions = M(() => {
+    if (!enc.active) return [] as ENC.ActionDef[];
+    const eng = toEngine();
+    const ctx = buildEncCtx();
+    return ENC.getAvailableActions(eng, enc, ctx);
+  }, [enc.active, enc.position, enc.insertion, enc.stunnedTurns, enc.enemy, toEngine, buildEncCtx]);
+
 const auto=C(()=>{let innAdjust=0;setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const eng=toEngine(prev);const prevA=+(prev.conditions?.arousal||0);const cond={...eng.cond};const mins=Math.max(1,Math.round(eng.minutesPerTurn??turn));const prevHour=typeof prev.timeSinceHour==='number'?prev.timeSinceHour:0;const totalMin=prevHour+mins;const hours=Math.floor(totalMin/60);const hourRemainder=totalMin-hours*60;let awarenessGain=0;for(let i=0;i<hours;i+=1){if(innocActive&&((cond.control||0)<=0))awarenessGain+=1;cond.control=clamp((cond.control||0)+1,0,100);const fatigueDrop=20+((cond.trauma||0)<=0?5:0);cond.fatigue=clamp((cond.fatigue||0)-fatigueDrop,0,100);}const trauma=clamp(cond.trauma||0,0,100);const anxiety=trauma>=70?2:trauma>=20?1:0;const hasControl=(cond.control||0)>=60;const stressBase=clamp(cond.stress||0,0,100);if(!hasControl&&anxiety>=2)cond.stress=clamp(stressBase+mins,0,100);else if(stressBase<100&&(hasControl||anxiety===0))cond.stress=clamp(stressBase-mins,0,100);const arousalVal=clamp(cond.arousal||0,0,100);const arousalNext=clamp(arousalVal-mins,0,100);cond.arousal=arousalNext;cond.pain=clamp((cond.pain||0)-mins,0,200);eng.cond=cond;const prevSince=typeof prev.timeSinceArousal==='number'?prev.timeSinceArousal:1;let next=L5.tickBodyWetness(eng,prevA,inEncounter,{timeSinceArousal:prevSince});if(!hasP)next.wet.penis=0;next=L5.transferLewdToClothes(next);next=L5.dryClothes(next);const nextSince=arousalNext<25?prevSince+mins:1;let coreStats=prev.coreStats;if(awarenessGain>0){const {stats,innDelta}=applyAwarenessGain(prev.coreStats||[],awarenessGain,innocActive,inn);coreStats=stats;innAdjust=innDelta;}return{...prev,wet:next.wet,conditions:next.cond,clothing:next.clothing,fluids:next.fluids,tuning:next.tuning,minutesPerTurn:next.minutesPerTurn,sensitivity:next.sensitivity||prev.sensitivity,timeSinceArousal:nextSince,timeSinceHour:hourRemainder,coreStats}});if(innAdjust)setInn((v:number)=>clamp(v+innAdjust,-20,0));},[hasP,toEngine,turn,innocActive,inn]);
   E(()=>setB((prev:any)=>prev.minutesPerTurn===turn?prev:{...prev,minutesPerTurn:turn}),[turn]);
   E(()=>{if(typeof localStorage==="undefined")return;const bundle={...b,clothing:b.clothing||[],fluids:b.fluids||cart.fluids,tuning:b.tuning||cart.tuning,wet:b.wet,sensitivity:b.sensitivity||cart.sensitivity,minutesPerTurn:b.minutesPerTurn??turn};const payload={bundle,location:loc,intensity:int,hasPenis:hasP,penisInches:pIn,hasVagina:hasV,vagDepth:vDep,vagWidth:vWid,titsSize:tits,assSize:ass,gender,visibleFluids:visF,turnMins:turn,innocencePool:inn,storedTrauma:stored,tShadow,stash,log};try{localStorage.setItem(LS,JSON.stringify(payload))}catch{}},[LS,b,loc,int,hasP,pIn,hasV,vDep,vWid,tits,ass,gender,visF,turn,inn,stored,tShadow,stash,log]);
-  const Tabs=("Character|Attributes|Inventory|Skill Tree|Misc").split('|');
+  const Tabs=("Character|Attributes|Inventory|Encounter|Skill Tree|Misc").split('|');
   const[tab,setTab]=S("Character");
   const Btn=({t}:{t:string})=>(<button onClick={()=>setTab(t)} className={`px-3 py-1.5 ${CN.r} ${CN.b} ${tab===t?"bg-zinc-800 border-white/20 text-zinc-100":"bg-zinc-900/60 border-white/10 text-zinc-300"}`}>{t}</button>);
   return(<div className={`${CN.p} text-zinc-100`}>
@@ -339,6 +404,138 @@ const auto=C(()=>{let innAdjust=0;setB((prev:any)=>{const inEncounter=!!(prev as
     {tab==="Attributes"&&(<div className="grid grid-cols-12 gap-4"><div className="col-span-12 lg:col-span-7"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Core Stats</div><div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">{(b.coreStats||[]).map((s:any)=>s.id==="awareness"?(<Card key={s.id} s={{...s,value:innocActive?0:s.value}} meta={b.statMeta||{}} awMode={innocActive} onGainAw={gainAw} onChange={setCore} desc={tx(`coreDesc.${s.id}`)}/>):(<Card key={s.id} s={s} meta={b.statMeta||{}} onChange={setCore} desc={tx(`coreDesc.${s.id}`)}/>))}</div></div></div><div className="col-span-12 lg:col-span-5"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Sexual Skills</div><div className="mt-2 grid gap-2">{(b.sexSkills||[]).map((s:any,i:number)=>(<div key={i} className={`${CN.r} ${CN.b} ${CN.z} p-2 text-xs`}><div className="flex items-center justify-between gap-2"><input className="h-7 flex-1 rounded bg-zinc-900/70 border border-white/10 px-2" value={s.name} onChange={e=>setB((b:any)=>{const ss=[...(b.sexSkills||[])];ss[i]={...ss[i],name:e.target.value};return{...b,sexSkills:ss}})}/><span className="rounded px-2 py-1 bg-zinc-900/70 border border-white/10 text-zinc-200">{rank(s.pct)} rank</span></div><div className="mt-2"><Slider label={`Proficiency ${s.pct}`} value={s.pct} onChange={v=>setPct(i,v)}/></div></div>))}</div><button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={()=>setB((b:any)=>({...b,sexSkills:[...(b.sexSkills||[]),{name:"New Skill",pct:0,rank:"F"}]}))}>Add skill</button>
 </div></div></div>)}
     {tab==="Inventory"&&(<div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Stash</div><div className="mt-2 grid gap-2">{stash.map((i:any)=>(<div key={i.id} className={`${CN.r} ${CN.b} ${CN.z} p-2 text-xs flex items-center gap-2`}><input className="h-7 flex-1 rounded bg-zinc-900/70 border border-white/10 px-2" value={i.name} onChange={e=>updIt(i.id,{name:e.target.value})}/><input type="number" className="h-7 w-20 rounded bg-zinc-900/70 border border-white/10 px-2" value={i.qty} onChange={e=>updIt(i.id,{qty:+(e.target.value||0)})}/><select className="h-7 rounded bg-zinc-900/70 border border-white/10 px-2" value={i.kind} onChange={e=>updIt(i.id,{kind:e.target.value})}><option>misc</option><option>clothes</option><option>toy</option></select><button className="h-7 rounded border border-white/10 bg-rose-900/60 px-2" onClick={()=>delIt(i.id)}>Delete</button></div>))}{!stash.length&&<div className={`text-xs ${CN.s}`}>Empty.</div>}</div><div className="mt-2"><button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={addIt}>Add item</button></div></div>)}
+
+    {tab==="Encounter"&&(
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 lg:col-span-6">
+          <div className={`${BOX} ${CN.p}`}>
+            <div className={`text-lg font-semibold ${CN.t}`}>Encounter</div>
+
+            <div className="mt-2 grid gap-2 text-xs">
+              <div className="flex items-center justify-between">
+                <div className={CN.s}>State</div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded px-2 py-1 bg-zinc-900/70 border border-white/10 text-zinc-200">
+                    {enc.active ? "ACTIVE" : "INACTIVE"}
+                  </span>
+                  {!enc.active ? (
+                    <button className={`h-7 ${CN.r} ${CN.b} bg-zinc-900/80 px-2`} onClick={startEnc}>
+                      Start
+                    </button>
+                  ) : (
+                    <button className={`h-7 ${CN.r} ${CN.b} bg-rose-900/60 px-2`} onClick={endEnc}>
+                      End
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}>
+                  <div className={CN.s}>Position</div>
+                  <div className={CN.t}>{enc.position}</div>
+                </div>
+                <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}>
+                  <div className={CN.s}>Insertion</div>
+                  <div className={CN.t}>
+                    {enc.insertion ? `${enc.insertion.by} ${enc.insertion.target}` : "None"}
+                  </div>
+                </div>
+                <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}>
+                  <div className={CN.s}>Stun</div>
+                  <div className={CN.t}>{enc.stunnedTurns || 0}</div>
+                </div>
+              </div>
+
+              <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}>
+                <div className="flex items-center justify-between">
+                  <div className={`font-semibold ${CN.t}`}>Enemy</div>
+                  <div className={CN.s}>{enc.enemy?.name || "Opponent"}</div>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={CN.s}>Len</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      step={0.1}
+                      className="h-7 w-20 rounded border border-white/10 bg-zinc-900/70 px-2"
+                      value={enc.enemy?.dickLengthIn ?? 7}
+                      onChange={e => patchEnemy({ dickLengthIn: clamp(+e.target.value || 0, 1, 20) })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={CN.s}>Dia</span>
+                    <input
+                      type="number"
+                      min={0.8}
+                      max={3}
+                      step={0.1}
+                      className="h-7 w-20 rounded border border-white/10 bg-zinc-900/70 px-2"
+                      value={enc.enemy?.dickDiaIn ?? 1.5}
+                      onChange={e => patchEnemy({ dickDiaIn: clamp(+e.target.value || 0, 0.8, 3) })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={CN.s}>Agg</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      className="h-7 w-20 rounded border border-white/10 bg-zinc-900/70 px-2"
+                      value={enc.enemy?.aggression ?? 60}
+                      onChange={e => patchEnemy({ aggression: clamp(+e.target.value || 0, 0, 100) })}
+                    />
+                  </div>
+                </div>
+                <div className={`mt-2 text-[11px] ${CN.s}`}>
+                  Aggression drives the enemy auto-step. Set Agg=0 for fully manual testing.
+                </div>
+              </div>
+
+              <div className={`${CN.r} ${CN.b} ${CN.z} p-2`}>
+                <div className={`font-semibold ${CN.t}`}>Action</div>
+                <div className="mt-2 flex items-center gap-2">
+                  <select
+                    className="h-7 flex-1 rounded bg-zinc-950/60 border border-white/10 px-2 text-zinc-100"
+                    value={encAction}
+                    onChange={e => setEncAction(e.target.value)}
+                    disabled={!enc.active}
+                  >
+                    {encActions.map(a => (
+                      <option key={a.id} value={a.id}>{a.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    className={`h-7 ${CN.r} ${CN.b} bg-zinc-900/80 px-2 text-xs disabled:opacity-50`}
+                    onClick={doEncTurn}
+                    disabled={!enc.active}
+                  >
+                    Take turn
+                  </button>
+                </div>
+                <div className={`mt-2 text-[11px] ${CN.s}`}>
+                  {(encActions.find(a => a.id === encAction)?.help) || ""}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-span-12 lg:col-span-6">
+          <div className={`${BOX} ${CN.p}`}>
+            <div className={`text-lg font-semibold ${CN.t}`}>Encounter Log</div>
+            <div className={`${CN.r} ${CN.b} ${CN.z} mt-2 h-80 overflow-auto p-2 text-[11px] ${CN.s}`}>
+              {(enc.log || []).map((l:any,i:number)=>(<div key={i} className="whitespace-pre">{l}</div>))}
+              {!enc.log?.length && <div className={`${CN.s}`}>No turns yet.</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     {tab==="Skill Tree"&&(<div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Skill Nodes</div><div className={`mt-2 text-xs ${CN.s}`}>No nodes defined yet. Import via JSON ("skillNodes").</div></div>)}
     {tab==="Misc"&&(<div className="grid grid-cols-12 gap-4"><div className="col-span-12 lg:col-span-7"><div className={`${BOX} ${CN.p}`}><div className={`text-lg font-semibold ${CN.t}`}>Event Log</div><div className={`${CN.r} ${CN.b} ${CN.z} mt-2 h-64 overflow-auto p-2 text-[11px] ${CN.s}`}>{log.map((l:any,i:number)=>(<div key={i} className="whitespace-pre">{l}</div>))}</div><div className="mt-2 flex gap-2"><button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={()=>setLog([])}>Clear</button>
 <button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={ex}>Export JSON</button><label className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs flex items-center cursor-pointer`}>Import<input type="file" accept="application/json" onChange={im} className="hidden"/></label><Button onClick={() => {
