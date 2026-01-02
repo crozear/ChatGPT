@@ -67,7 +67,7 @@
     "fatigue": 5,
     "stress": 0,
     "trauma": 5,
-    "control": 10,
+    "control": 90,
     "allure": 22
   },
   "sensitivity": {

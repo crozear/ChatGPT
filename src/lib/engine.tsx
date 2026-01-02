@@ -50,6 +50,11 @@ export interface TransferTuning {
   segments: TransferSegment[];
 }
 
+export interface WetnessTickOptions {
+  timeSinceArousal?: number;
+  arousalMax?: number;
+}
+
 export interface Tuning {
   wet: { arousalMultVag: number; arousalMultPen: number; vagForeignUnit: number; anForeignUnit: number; penForeignUnit: number; maxSelfVag: number; maxSelfPen: number; };
   lewdBonus: { max: number; step: number; };
@@ -132,12 +137,17 @@ export const stateMods = (cond: Conditions, kind: 'physical'|'social'|'resist'|'
 export const encounterChance = (allure: number, t: Tuning) => clamp(t.encounter.base + t.encounter.allureMult * allure, 0, t.encounter.cap);
 
 /** Update body wetness based on arousal gain, foreign fluids, and lewd bonus. */
-export function tickBodyWetness(state: EngineState, prevArousal: number, encounterActive: boolean): EngineState {
+export function tickBodyWetness(
+  state: EngineState,
+  prevArousal: number,
+  encounterActive: boolean,
+  opt: WetnessTickOptions = {}
+): EngineState {
   const s = structuredClone(state);
   const { fluids, wet, tuning, minutesPerTurn } = s;
+  const minutes = Math.max(0, typeof minutesPerTurn === 'number' ? minutesPerTurn : 0);
 
   const arousalGain =  Math.max(0, s.cond.arousal - prevArousal);
-  const selfV = clamp(Math.round(arousalGain * tuning.wet.arousalMultVag), 0, tuning.wet.maxSelfVag);
   const selfP = clamp(Math.round(arousalGain * tuning.wet.arousalMultPen), 0, tuning.wet.maxSelfPen);
 
   const foreignV = clamp(tuning.wet.vagForeignUnit * (fluids.vagina.slime + fluids.vagina.cum), 0, 120);
@@ -145,9 +155,32 @@ export function tickBodyWetness(state: EngineState, prevArousal: number, encount
   const foreignP = clamp(tuning.wet.penForeignUnit * (fluids.penis.slime + fluids.penis.cum), 0, 120);
 
   const lewdBonus = encounterActive ? Math.min(tuning.lewdBonus.max, Math.floor(Math.max(s.core.promiscuity, s.core.deviancy) / tuning.lewdBonus.step)) : 0;
-  const dryRate = tuning.dry.bodyPerMin * minutesPerTurn;
+  const dryRate = tuning.dry.bodyPerMin * minutes;
 
-  s.wet.vagina = clamp(wet.vagina - dryRate + selfV + foreignV + lewdBonus, 0, 120);
+  const arousalMax = opt.arousalMax ?? 100;
+  const arousalValue = clamp(s.cond.arousal, 0, arousalMax);
+  const arousalPercent = arousalMax > 0 ? clamp(arousalValue / arousalMax, 0, 1) : 0;
+  let wetnessChange = 0;
+  if (arousalValue >= arousalMax * (2 / 5)) {
+    const wetnessPercent = clamp(wet.vagina / 100, 0, 1);
+    wetnessChange = 1 + arousalPercent * 2;
+    wetnessChange = Math.floor(wetnessChange * 2 * (1 - wetnessPercent));
+  }
+
+  const timeSinceArousal = Math.max(0, opt.timeSinceArousal ?? 1);
+  wetnessChange -= 0.1 * timeSinceArousal * (1 - arousalPercent);
+
+  if (arousalValue >= arousalMax * (3 / 5) && wetnessChange < 0) wetnessChange = 0;
+
+  const vaginalSelf = Math.round(wetnessChange * minutes);
+
+  let vaginaNext = wet.vagina + vaginalSelf + foreignV + lewdBonus;
+  if (vaginaNext >= 60) {
+    const denom = Math.max(60, vaginaNext);
+    vaginaNext = Math.floor(120 - 3600 / denom);
+  }
+  s.wet.vagina = clamp(vaginaNext, 0, 120);
+
   s.wet.penis  = clamp(wet.penis  - dryRate + selfP + foreignP + lewdBonus, 0, 120);
   s.wet.anus   = clamp(wet.anus   - dryRate +            foreignA + lewdBonus, 0, 120);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyStimulation, transferLewdToClothes, type EngineState, type SensitivityMap } from './engine';
+import { applyStimulation, tickBodyWetness, transferLewdToClothes, type EngineState, type SensitivityMap } from './engine';
 
 const transferSegments = [
   { wet: 0, minutesToDamp: 9999, minutesToSoaked: 9999 },
@@ -66,7 +66,63 @@ const createState = (overrides: Partial<EngineState> = {}): EngineState => ({
   sensitivity: overrides.sensitivity ?? { chest: 2, mouth: 2, genital: 2, ass: 2 },
 });
 
+const defaultConditions = createState().cond;
+const makeCond = (extra: Partial<EngineState['cond']> = {}) => ({
+  ...defaultConditions,
+  ...extra,
+});
+
 const baseSensitivity: SensitivityMap = { chest: 2, mouth: 2, genital: 2, ass: 2 };
+
+describe('tickBodyWetness', () => {
+  it('builds vaginal wetness once arousal clears 40%', () => {
+    const state = createState({
+      wet: { vagina: 30, penis: 0, anus: 0 },
+      cond: makeCond({ arousal: 70 }),
+      minutesPerTurn: 5,
+    });
+
+    const result = tickBodyWetness(state, 60, false, { timeSinceArousal: 2 });
+
+    expect(result.wet.vagina).toBeGreaterThan(state.wet.vagina);
+  });
+
+  it('dries vaginal wetness faster the longer arousal has been idle', () => {
+    const state = createState({
+      wet: { vagina: 40, penis: 0, anus: 0 },
+      cond: makeCond({ arousal: 10 }),
+      minutesPerTurn: 5,
+    });
+
+    const result = tickBodyWetness(state, 10, false, { timeSinceArousal: 40 });
+
+    expect(result.wet.vagina).toBeLessThan(state.wet.vagina);
+  });
+
+  it('clamps negative change when arousal is high', () => {
+    const state = createState({
+      wet: { vagina: 90, penis: 0, anus: 0 },
+      cond: makeCond({ arousal: 90 }),
+      minutesPerTurn: 1,
+    });
+
+    const result = tickBodyWetness(state, 90, false, { timeSinceArousal: 200 });
+
+    expect(result.wet.vagina).toBe(80);
+  });
+
+  it('applies the saturation curve after 60 wetness', () => {
+    const state = createState({
+      wet: { vagina: 120, penis: 0, anus: 0 },
+      cond: makeCond({ arousal: 80 }),
+      minutesPerTurn: 0,
+    });
+
+    const result = tickBodyWetness(state, 80, false, { timeSinceArousal: 1 });
+
+    expect(result.wet.vagina).toBe(90);
+  });
+});
 
 describe('transferLewdToClothes', () => {
   it('caps underwear saturation at 100 and transfers overflow to the outer garment', () => {

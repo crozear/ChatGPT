@@ -20,7 +20,7 @@ const DEFAULT_COND:{[k:string]:string[]}={
   fatigue:["You are refreshed.","You are wide awake.","You are alert.","You are wearied.","You are tired.","You are fatigued.","You are exhausted."],
   stress:["You are serene.","You are placid.","You are calm.","You are tense.","You are strained.","You are distressed.","You are overwhelmed!"],
   trauma:["You are healthy.","You are uneasy.","You are nervous.","You are troubled.","You are disturbed.","You are tormented.","You feel numb."],
-  control:["You are confident.","You are insecure.","You are worried.","You are anxious.","You are scared.","You are frightened.","You are terrified."]
+  control:["You are terrified.","You are frightened.","You are scared.","You are anxious.","You are worried.","You are insecure.","You are confident."]
 };
 const stageOf=(s:{id:string;value:number;max:number;meta?:any;desc?:string},m:any)=>{const M=m?.[s?.id]||s?.meta;if(M?.thresholds&&M?.stages){const th=M.thresholds;let i=th.filter((t:number)=>(s.value??0)>=t).length-1;i=clamp(i,0,(M.stages.length-1));return{stage:M.stages[i],summary:M.summary||s.desc||"",index:i,steps:M.stages.length}}const steps=(M?.stages?.length)||7;const i=clamp(Math.round(((s.value||0)/(s.max||1))*(steps-1)),0,steps-1);return{stage:M?.stages?M.stages[i]:"",summary:M?.summary||s.desc||"",index:i,steps}};
 const integ=(n:number)=>n<=0?"destroyed":n<20?"tattered":n<50?"torn":n<90?"frayed":"undamaged";
@@ -66,6 +66,7 @@ export default function App(){
         sensitivity: prev.sensitivity || cart.sensitivity,
         minutesPerTurn: prev.minutesPerTurn ?? (saved.turnMins ?? 10),
         timeSinceArousal: prev.timeSinceArousal ?? 1,
+        timeSinceHour: prev.timeSinceHour ?? 0,
       };
     } catch {
       return {
@@ -77,6 +78,7 @@ export default function App(){
         sensitivity: cart.sensitivity,
         minutesPerTurn: 10,
         timeSinceArousal: 1,
+        timeSinceHour: 0,
       };
     }
   });
@@ -152,12 +154,17 @@ export default function App(){
   type CondOptions = { ignoreStimFocus?: boolean };
   const lastACommitRef = R<number>(b.conditions?.arousal ?? 0);
   const arousalDraftRef = R<number | null>(null);
+  const timeSinceArousalRef = R<number>(b.timeSinceArousal ?? 1);
 
   E(() => {
     if (arousalDraftRef.current === null) {
       lastACommitRef.current = b.conditions?.arousal ?? 0;
     }
   }, [b.conditions?.arousal]);
+
+  E(() => {
+    timeSinceArousalRef.current = b.timeSinceArousal ?? 1;
+  }, [b.timeSinceArousal]);
 
   const commitArousal = C((finalVal: number, opt?: CondOptions) => {
     const prev = lastACommitRef.current;
@@ -166,7 +173,8 @@ export default function App(){
     if (!opt?.ignoreStimFocus) stim.area = stimArea;
     const r = L5.applyStimulation(prev, eng.core.will, stim, eng.tuning, eng.sensitivity);
     eng.cond = { ...eng.cond, arousal: r.arousal };
-    let next = L5.tickBodyWetness(eng, prev, false);
+    const timeSince = timeSinceArousalRef.current ?? 1;
+    let next = L5.tickBodyWetness(eng, prev, false, { timeSinceArousal: timeSince });
     if (!hasP) next.wet.penis = 0;
     applyEngine(next);
     if (r.stunnedTurns) push(`Orgasm → stunned ${r.stunnedTurns} turn${r.stunnedTurns===1?"":"s"}`);
@@ -231,7 +239,7 @@ export default function App(){
     lab === "Small" ? 1.2 :
     lab === "Normal"? 1.4 :
     lab === "Large" ? 1.6 : 1.8;
-  const auto=C(()=>{let innAdjust=0;setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const eng=toEngine(prev);const prevA=+(prev.conditions?.arousal||0);const cond={...eng.cond};const mins=Math.max(1,Math.round(eng.minutesPerTurn??turn));const hours=Math.floor(mins/60);let awarenessGain=0;for(let i=0;i<hours;i+=1){if(innocActive&&((cond.control||0)<=0))awarenessGain+=1;cond.control=clamp((cond.control||0)+1,0,100);const fatigueDrop=20+((cond.trauma||0)<=0?5:0);cond.fatigue=clamp((cond.fatigue||0)-fatigueDrop,0,100);}const trauma=clamp(cond.trauma||0,0,100);const anxiety=trauma>=70?2:trauma>=20?1:0;const hasControl=(cond.control||0)>=60;const stressBase=clamp(cond.stress||0,0,100);if(!hasControl&&anxiety>=2)cond.stress=clamp(stressBase+mins,0,100);else if(stressBase<100&&(hasControl||anxiety===0))cond.stress=clamp(stressBase-mins,0,100);const arousalVal=clamp(cond.arousal||0,0,100);const arousalNext=clamp(arousalVal-mins,0,100);cond.arousal=arousalNext;cond.pain=clamp((cond.pain||0)-mins,0,200);eng.cond=cond;let next=L5.tickBodyWetness(eng,prevA,inEncounter);if(!hasP)next.wet.penis=0;next=L5.transferLewdToClothes(next);next=L5.dryClothes(next);const prevSince=typeof prev.timeSinceArousal==='number'?prev.timeSinceArousal:1;const nextSince=arousalNext<25?prevSince+mins:1;let coreStats=prev.coreStats;if(awarenessGain>0){const {stats,innDelta}=applyAwarenessGain(prev.coreStats||[],awarenessGain,innocActive,inn);coreStats=stats;innAdjust=innDelta;}return{...prev,wet:next.wet,conditions:next.cond,clothing:next.clothing,fluids:next.fluids,tuning:next.tuning,minutesPerTurn:next.minutesPerTurn,sensitivity:next.sensitivity||prev.sensitivity,timeSinceArousal:nextSince,coreStats}});if(innAdjust)setInn((v:number)=>clamp(v+innAdjust,-20,0));},[hasP,toEngine,turn,innocActive,inn]);
+const auto=C(()=>{let innAdjust=0;setB((prev:any)=>{const inEncounter=!!(prev as any)?.encounter?.active;const eng=toEngine(prev);const prevA=+(prev.conditions?.arousal||0);const cond={...eng.cond};const mins=Math.max(1,Math.round(eng.minutesPerTurn??turn));const prevHour=typeof prev.timeSinceHour==='number'?prev.timeSinceHour:0;const totalMin=prevHour+mins;const hours=Math.floor(totalMin/60);const hourRemainder=totalMin-hours*60;let awarenessGain=0;for(let i=0;i<hours;i+=1){if(innocActive&&((cond.control||0)<=0))awarenessGain+=1;cond.control=clamp((cond.control||0)+1,0,100);const fatigueDrop=20+((cond.trauma||0)<=0?5:0);cond.fatigue=clamp((cond.fatigue||0)-fatigueDrop,0,100);}const trauma=clamp(cond.trauma||0,0,100);const anxiety=trauma>=70?2:trauma>=20?1:0;const hasControl=(cond.control||0)>=60;const stressBase=clamp(cond.stress||0,0,100);if(!hasControl&&anxiety>=2)cond.stress=clamp(stressBase+mins,0,100);else if(stressBase<100&&(hasControl||anxiety===0))cond.stress=clamp(stressBase-mins,0,100);const arousalVal=clamp(cond.arousal||0,0,100);const arousalNext=clamp(arousalVal-mins,0,100);cond.arousal=arousalNext;cond.pain=clamp((cond.pain||0)-mins,0,200);eng.cond=cond;const prevSince=typeof prev.timeSinceArousal==='number'?prev.timeSinceArousal:1;let next=L5.tickBodyWetness(eng,prevA,inEncounter,{timeSinceArousal:prevSince});if(!hasP)next.wet.penis=0;next=L5.transferLewdToClothes(next);next=L5.dryClothes(next);const nextSince=arousalNext<25?prevSince+mins:1;let coreStats=prev.coreStats;if(awarenessGain>0){const {stats,innDelta}=applyAwarenessGain(prev.coreStats||[],awarenessGain,innocActive,inn);coreStats=stats;innAdjust=innDelta;}return{...prev,wet:next.wet,conditions:next.cond,clothing:next.clothing,fluids:next.fluids,tuning:next.tuning,minutesPerTurn:next.minutesPerTurn,sensitivity:next.sensitivity||prev.sensitivity,timeSinceArousal:nextSince,timeSinceHour:hourRemainder,coreStats}});if(innAdjust)setInn((v:number)=>clamp(v+innAdjust,-20,0));},[hasP,toEngine,turn,innocActive,inn]);
   E(()=>setB((prev:any)=>prev.minutesPerTurn===turn?prev:{...prev,minutesPerTurn:turn}),[turn]);
   E(()=>{if(typeof localStorage==="undefined")return;const bundle={...b,clothing:b.clothing||[],fluids:b.fluids||cart.fluids,tuning:b.tuning||cart.tuning,wet:b.wet,sensitivity:b.sensitivity||cart.sensitivity,minutesPerTurn:b.minutesPerTurn??turn};const payload={bundle,location:loc,intensity:int,hasPenis:hasP,penisInches:pIn,hasVagina:hasV,vagDepth:vDep,vagWidth:vWid,titsSize:tits,assSize:ass,gender,visibleFluids:visF,turnMins:turn,innocencePool:inn,storedTrauma:stored,tShadow,stash,log};try{localStorage.setItem(LS,JSON.stringify(payload))}catch{}},[LS,b,loc,int,hasP,pIn,hasV,vDep,vWid,tits,ass,gender,visF,turn,inn,stored,tShadow,stash,log]);
   const Tabs=("Character|Attributes|Inventory|Skill Tree|Misc").split('|');
@@ -336,7 +344,7 @@ export default function App(){
 <button className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs`} onClick={ex}>Export JSON</button><label className={`h-8 ${CN.r} ${CN.b} bg-zinc-900/80 px-3 text-xs flex items-center cursor-pointer`}>Import<input type="file" accept="application/json" onChange={im} className="hidden"/></label><Button onClick={() => {
   const eng0 = toEngine();
   const s = { ...eng0, cond: { ...eng0.cond, arousal: b.conditions.arousal } };
-  const next = L5.tickBodyWetness(s, 60, false);
+  const next = L5.tickBodyWetness(s, 60, false, { timeSinceArousal: b.timeSinceArousal ?? 1 });
   alert(`Wet after tick: vag=${next.wet.vagina} pen=${next.wet.penis} anus=${next.wet.anus}`);
 }}>
   Smoke: self-lube tick
